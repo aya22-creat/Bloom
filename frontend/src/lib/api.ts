@@ -35,53 +35,65 @@ export const apiProfile = {
 };
 
 // Reminders
+// Reminders
 export const apiReminders = {
   list: (userId: number) => request(`/reminders/${userId}`),
-  create: (payload: any) => request('/reminders', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: any) => request(`/reminders/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/reminders', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id: number, payload: Record<string, unknown>) =>
+    request(`/reminders/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   remove: (id: number) => request(`/reminders/${id}`, { method: 'DELETE' }),
 };
 
 // Symptoms
 export const apiSymptoms = {
   list: (userId: number) => request(`/symptoms/${userId}`),
-  create: (payload: any) => request('/symptoms', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: any) => request(`/symptoms/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/symptoms', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id: number, payload: Record<string, unknown>) =>
+    request(`/symptoms/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   remove: (id: number) => request(`/symptoms/${id}`, { method: 'DELETE' }),
 };
 
 // Self Exams
 export const apiSelfExams = {
   list: (userId: number) => request(`/self-exams/${userId}`),
-  create: (payload: any) => request('/self-exams', { method: 'POST', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/self-exams', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 // Cycles
 export const apiCycles = {
   list: (userId: number) => request(`/cycles/${userId}`),
-  create: (payload: any) => request('/cycles', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: any) => request(`/cycles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/cycles', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id: number, payload: Record<string, unknown>) =>
+    request(`/cycles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   remove: (id: number) => request(`/cycles/${id}`, { method: 'DELETE' }),
 };
 
 // Medications
 export const apiMedications = {
   list: (userId: number) => request(`/medications/${userId}`),
-  create: (payload: any) => request('/medications', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: any) => request(`/medications/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/medications', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id: number, payload: Record<string, unknown>) =>
+    request(`/medications/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   remove: (id: number) => request(`/medications/${id}`, { method: 'DELETE' }),
 };
 
 // Medication Logs
 export const apiMedicationLogs = {
   list: (medicationId: number) => request(`/medication-logs/${medicationId}`),
-  create: (payload: any) => request('/medication-logs', { method: 'POST', body: JSON.stringify(payload) }),
+  create: (payload: Record<string, unknown>) =>
+    request('/medication-logs', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 // Questionnaire
 export const apiQuestionnaire = {
   list: (userId: number) => request(`/questionnaire/${userId}`),
-  submit: (payload: any) => request('/questionnaire', { method: 'POST', body: JSON.stringify(payload) }),
+  submit: (payload: Record<string, unknown>) =>
+    request('/questionnaire', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 // AI Assistant

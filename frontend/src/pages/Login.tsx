@@ -56,7 +56,7 @@ const Login = () => {
       userType: data.userType || 'wellness',
       createdAt: new Date().toISOString(),
     };
-    setCurrentUser(appUser as any);
+    setCurrentUser(appUser as Record<string, unknown>);
 
     toast({
       title: t('auth.welcome_back'),
@@ -64,7 +64,7 @@ const Login = () => {
     });
 
     navigate(`/dashboard/${appUser.userType}`);
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.warn("Backend API failed, trying local storage fallback...");
     // Fallback to local storage
     const localUser = loginUser(formData.email, formData.password);

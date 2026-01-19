@@ -15,7 +15,7 @@ export interface User {
     address?: string;
     emergencyContact?: string;
     medicalHistory?: string;
-    [key: string]: any;
+    [key: string]: string | number | undefined;
   };
 }
 

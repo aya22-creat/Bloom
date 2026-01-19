@@ -88,10 +88,11 @@ const Profile = () => {
           description: "Your profile has been successfully updated.",
         });
       }
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to update profile. Please try again.";
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update profile. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     }

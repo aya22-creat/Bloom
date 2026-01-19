@@ -114,7 +114,7 @@ const HealthQuestionnaire = () => {
     navigate(`/dashboard/${userType}`);
   };
 
-  const handleInvalid = (errors: any) => {
+  const handleInvalid = (errors: Record<string, unknown>) => {
     // determine first field with error and jump to its step
     const fieldNames = Object.keys(errors || {});
     if (fieldNames.length === 0) {
@@ -140,7 +140,7 @@ const HealthQuestionnaire = () => {
     toast({ title: 'Please complete required fields', description: `There are errors in step ${step + 1}.` });
   };
 
-  const calculateHealthScore = (data: any): number => {
+  const calculateHealthScore = (data: Record<string, unknown>): number => {
     // Simple scoring logic - can be enhanced with ML model
     let score = 70; // Base score
     

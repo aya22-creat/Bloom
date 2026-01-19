@@ -233,14 +233,14 @@ const AIHealthAssistant = () => {
     try {
       // محاولـة الرد عبر Gemini من الباكند
       const result = await apiAI.chat({ prompt: currentMessage, system });
-      const aiResponseContent = (result as any)?.text || "";
+      const aiResponseContent = (result as Record<string, unknown>)?.text || "";
       const aiResponse: ChatMessage = {
         id: Date.now() + 1,
         role: "assistant",
         content: aiResponseContent || generateAIResponse(currentMessage),
       };
       setMessages((prev) => [...prev, aiResponse]);
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       // في حال الفشل، نستخدم الرد المحلي ونظهر Toast
       const aiResponseContent = generateAIResponse(currentMessage);
       const aiResponse: ChatMessage = {
@@ -269,7 +269,7 @@ const AIHealthAssistant = () => {
     if (!user || !currentConversationId) return;
     const listKey = `hb_chat_conversations_user_${user.id}`;
     const storedList = localStorage.getItem(listKey);
-    let convs: Conversation[] = storedList ? JSON.parse(storedList) : [];
+    const convs: Conversation[] = storedList ? JSON.parse(storedList) : [];
     const idx = convs.findIndex(c => c.id === currentConversationId);
     if (idx >= 0) {
       convs[idx] = { ...convs[idx], messages, updatedAt: Date.now() };

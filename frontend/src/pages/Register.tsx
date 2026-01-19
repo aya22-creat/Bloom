@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Globe } from "lucide-react";
 import { Flower2, ArrowLeft, Heart, Sparkles, Shield, ArrowRight } from "lucide-react";
-import { setCurrentUser } from "@/lib/database";
+import { setCurrentUser, createUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -55,7 +55,7 @@ const Register = () => {
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -117,7 +117,7 @@ const Register = () => {
         createdAt: new Date().toISOString(),
         language: formData.language,
       };
-      setCurrentUser(appUser as any);
+      setCurrentUser(appUser as Record<string, unknown>);
 
       toast({
         title: t('auth.registration_successful'),
@@ -125,14 +125,14 @@ const Register = () => {
       });
 
       navigate(`/questionnaire/${formData.userType}`);
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
        console.warn("Backend API failed, trying local storage fallback...");
        try {
          const newUser = createUser({
            name: formData.name,
            email: formData.email,
            password: formData.password,
-           userType: formData.userType as any,
+           userType: (formData.userType as "fighter" | "survivor" | "wellness") || "wellness",
            language: formData.language,
          });
          setCurrentUser(newUser);
@@ -141,7 +141,7 @@ const Register = () => {
            description: t('auth.welcome_hopebloom', { name: formData.name }),
          });
          navigate(`/questionnaire/${formData.userType}`);
-       } catch (localError: any) {
+       } catch (localError: Error | unknown) {
          toast({
            title: t('auth.registration_failed'),
            description: localError.message || t('auth.error_occurred'),

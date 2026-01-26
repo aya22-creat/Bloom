@@ -3,23 +3,24 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Welcome from "./pages/Welcome";
-import Onboarding from "./pages/Onboarding";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
-import HealthQuestionnaire from "./pages/HealthQuestionnaire";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
+import Welcome from "./pages/auth/Welcome";
+import Onboarding from "./pages/auth/Onboarding";
+import Register from "./pages/auth/Register";
+import Login from "./pages/auth/Login";
+import HealthQuestionnaire from "./pages/health/HealthQuestionnaire";
+import Dashboard from "./pages/dashboard/Dashboard";
+import Profile from "./pages/dashboard/Profile";
 import { Navigate } from "react-router-dom";
 import { getCurrentUser } from "@/lib/database";
-import AIHealthAssistant from "./pages/AIHealthAssistant";
-import HealthTracker from "./pages/HealthTracker";
-import NutritionPlan from "./pages/NutritionPlan";
-import ExerciseGuide from "./pages/ExerciseGuide";
-import EducationalHub from "./pages/EducationalHub";
-import MedicalCenters from "./pages/MedicalCenters";
-import MentalWellness from "./pages/MentalWellness";
-import Reminders from "./pages/Reminders";
+import AIHealthAssistant from "./pages/health/AIHealthAssistant";
+import HealthTracker from "./pages/health/HealthTracker";
+import NutritionPlan from "./pages/wellness/NutritionPlan";
+import ExerciseGuide from "./pages/education/ExerciseGuide";
+import EducationalHub from "./pages/education/EducationalHub";
+import MedicalCenters from "./pages/health/MedicalCenters";
+import MentalWellness from "./pages/wellness/MentalWellness";
+import Reminders from "./pages/dashboard/Reminders";
+import Meditation from "./pages/wellness/Meditation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/medical-centers/:userType" element={<MedicalCenters />} />
           <Route path="/mental-wellness/:userType" element={<MentalWellness />} />
           <Route path="/reminders/:userType" element={<Reminders />} />
+          <Route path="/meditation/:userType" element={<Meditation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

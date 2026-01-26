@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { MedicationLog } from '../types/medication';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.post('/', (req, res) => {
     `INSERT INTO medication_logs (medication_id, user_id, taken_at, status, notes)
      VALUES (?, ?, ?, ?, ?)`,
     [log.medication_id, log.user_id, log.taken_at || null, log.status, log.notes || null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create log.' });
       res.status(201).json({ id: this.lastID });
     }

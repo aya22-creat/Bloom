@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { Reminder } from '../types/reminder';
 
 const router = Router();
@@ -46,7 +46,7 @@ router.post('/', (req, res) => {
       reminder.interval || null,
       enabledVal,
     ],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) {
         return res.status(400).json({ error: 'Failed to create reminder.' });
       }
@@ -81,7 +81,7 @@ router.put('/:id', (req, res) => {
   Database.db.run(
     `UPDATE reminders SET ${fields.join(', ')} WHERE id = ?`,
     params,
-    function (err) {
+    function (this: RunResult, err) {
       if (err) {
         return res.status(400).json({ error: 'Failed to update reminder.' });
       }
@@ -93,7 +93,7 @@ router.put('/:id', (req, res) => {
 // Delete reminder
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-  Database.db.run(`DELETE FROM reminders WHERE id = ?`, [id], function (err) {
+  Database.db.run(`DELETE FROM reminders WHERE id = ?`, [id], function (this: RunResult, err) {
     if (err) {
       return res.status(500).json({ error: 'Failed to delete reminder.' });
     }

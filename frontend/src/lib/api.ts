@@ -96,6 +96,11 @@ export const apiQuestionnaire = {
     request('/questionnaire', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
+// Reports
+export const apiReports = {
+  getDoctorReport: (userId: number) => request(`/reports/doctor/${userId}`),
+};
+
 // AI Assistant
 export const apiAI = {
   chat: (payload: { prompt: string; system?: string }) =>
@@ -103,4 +108,25 @@ export const apiAI = {
       '/ai/chat',
       { method: 'POST', body: JSON.stringify(payload) },
     ),
+};
+
+// Journal
+export const apiJournal = {
+  list: (userId: number) => request(`/journal/${userId}`),
+  get: (userId: number, entryId: number) => request(`/journal/${userId}/${entryId}`),
+  create: (payload: Record<string, unknown>) =>
+    request('/journal', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (entryId: number, payload: Record<string, unknown>) =>
+    request(`/journal/${entryId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  remove: (entryId: number) => request(`/journal/${entryId}`, { method: 'DELETE' }),
+};
+
+// Progress Logs
+export const apiProgress = {
+  list: (userId: number) => request(`/progress/${userId}`),
+  getByActivity: (userId: number, activityType: string) =>
+    request(`/progress/${userId}/activity/${activityType}`),
+  create: (payload: Record<string, unknown>) =>
+    request('/progress', { method: 'POST', body: JSON.stringify(payload) }),
+  remove: (logId: number) => request(`/progress/${logId}`, { method: 'DELETE' }),
 };

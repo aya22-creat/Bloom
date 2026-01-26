@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { Medication } from '../types/medication';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.post('/', (req, res) => {
     `INSERT INTO medications (user_id, name, dosage, schedule, start_date, end_date)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [m.user_id, m.name, m.dosage || null, m.schedule || null, m.start_date || null, m.end_date || null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create medication.' });
       res.status(201).json({ id: this.lastID });
     }
@@ -47,7 +47,7 @@ router.put('/:id', (req, res) => {
   Database.db.run(
     `UPDATE medications SET ${fields.join(', ')} WHERE id = ?`,
     params,
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to update medication.' });
       res.json({ message: 'Medication updated successfully.' });
     }
@@ -56,7 +56,7 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-  Database.db.run(`DELETE FROM medications WHERE id = ?`, [id], function (err) {
+  Database.db.run(`DELETE FROM medications WHERE id = ?`, [id], function (this: RunResult, err) {
     if (err) return res.status(500).json({ error: 'Failed to delete medication.' });
     if (this.changes === 0) return res.status(404).json({ error: 'Medication not found.' });
     res.json({ message: 'Medication deleted successfully.' });

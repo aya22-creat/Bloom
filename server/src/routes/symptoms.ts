@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { Symptom } from '../types/symptom';
 
 const router = Router();
@@ -27,7 +27,7 @@ router.post('/', (req, res) => {
     `INSERT INTO symptoms (user_id, date, description, severity, notes)
      VALUES (?, ?, ?, ?, ?)`,
     [s.user_id, s.date || null, s.description, s.severity, s.notes || null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create symptom.' });
       res.status(201).json({ id: this.lastID });
     }
@@ -52,7 +52,7 @@ router.put('/:id', (req, res) => {
   Database.db.run(
     `UPDATE symptoms SET ${fields.join(', ')} WHERE id = ?`,
     params,
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to update symptom.' });
       res.json({ message: 'Symptom updated successfully.' });
     }
@@ -62,7 +62,7 @@ router.put('/:id', (req, res) => {
 // Delete symptom
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-  Database.db.run(`DELETE FROM symptoms WHERE id = ?`, [id], function (err) {
+  Database.db.run(`DELETE FROM symptoms WHERE id = ?`, [id], function (this: RunResult, err) {
     if (err) return res.status(500).json({ error: 'Failed to delete symptom.' });
     if (this.changes === 0) return res.status(404).json({ error: 'Symptom not found.' });
     res.json({ message: 'Symptom deleted successfully.' });

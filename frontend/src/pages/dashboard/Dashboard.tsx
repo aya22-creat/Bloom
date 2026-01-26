@@ -19,6 +19,7 @@ import { getCurrentUser, logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { DoctorReportButton } from "@/components/health/DoctorReportButton";
 
 const Dashboard = () => {
   const { userType } = useParams<{ userType: string }>();
@@ -195,10 +196,15 @@ const Dashboard = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className={`bg-gradient-to-r ${effectiveUserType === "fighter" ? "from-rose-500 to-pink-500" : effectiveUserType === "survivor" ? "from-purple-500 to-pink-500" : effectiveUserType === "wellness" ? "from-pink-500 to-rose-500" : "from-primary to-accent"} rounded-3xl p-8 mb-8 text-white shadow-glow`}>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            {userName ? `Welcome back, ${userName}!` : info.title}
-          </h1>
-          <p className="text-lg opacity-90">{info.subtitle}</p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                {userName ? `Welcome back, ${userName}!` : info.title}
+              </h1>
+              <p className="text-white/90 text-lg">{info.subtitle}</p>
+            </div>
+            <DoctorReportButton />
+          </div>
         </div>
 
         {/* Quick Stats (for fighters and survivors) */}

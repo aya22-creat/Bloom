@@ -58,7 +58,8 @@ const Welcome = () => {
           ].map((feature, index) => (
             <div
               key={index}
-              className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-soft hover:shadow-glow transition-smooth"
+              onClick={() => navigate("/register")}
+              className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-soft hover:shadow-glow transition-smooth cursor-pointer"
             >
               <feature.icon className="w-8 h-8 text-primary mx-auto mb-3" />
               <p className="text-sm font-medium text-foreground">{t(`welcome.features.${feature.key}`)}</p>

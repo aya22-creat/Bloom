@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { SelfExam } from '../types/selfExam';
 
 const router = Router();
@@ -26,7 +26,7 @@ router.post('/', (req, res) => {
     `INSERT INTO self_exams (user_id, performed_at, findings, pain_level, notes)
      VALUES (?, ?, ?, ?, ?)`,
     [e.user_id, e.performed_at || null, e.findings || null, e.pain_level ?? null, e.notes || null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create self exam.' });
       res.status(201).json({ id: this.lastID });
     }

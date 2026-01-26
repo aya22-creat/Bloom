@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { QuestionnaireResponse } from '../types/questionnaire';
 
 const router = Router();
@@ -32,7 +32,7 @@ router.post('/', (req, res) => {
     `INSERT INTO questionnaire_responses (user_id, submitted_at, answers, result)
      VALUES (?, ?, ?, ?)`,
     [q.user_id, q.submitted_at || null, JSON.stringify(q.answers), q.result ? JSON.stringify(q.result) : null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to submit response.' });
       res.status(201).json({ id: this.lastID });
     }

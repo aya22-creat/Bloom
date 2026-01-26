@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { Cycle } from '../types/cycle';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.post('/', (req, res) => {
     `INSERT INTO cycles (user_id, start_date, end_date, notes)
      VALUES (?, ?, ?, ?)`,
     [c.user_id, c.start_date, c.end_date || null, c.notes || null],
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create cycle.' });
       res.status(201).json({ id: this.lastID });
     }
@@ -45,7 +45,7 @@ router.put('/:id', (req, res) => {
   Database.db.run(
     `UPDATE cycles SET ${fields.join(', ')} WHERE id = ?`,
     params,
-    function (err) {
+    function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to update cycle.' });
       res.json({ message: 'Cycle updated successfully.' });
     }
@@ -54,7 +54,7 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-  Database.db.run(`DELETE FROM cycles WHERE id = ?`, [id], function (err) {
+  Database.db.run(`DELETE FROM cycles WHERE id = ?`, [id], function (this: RunResult, err) {
     if (err) return res.status(500).json({ error: 'Failed to delete cycle.' });
     if (this.changes === 0) return res.status(404).json({ error: 'Cycle not found.' });
     res.json({ message: 'Cycle deleted successfully.' });

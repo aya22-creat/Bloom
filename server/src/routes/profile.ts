@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Database } from '../lib/database';
+import { Database, RunResult } from '../lib/database';
 import { UserProfile } from '../types/profile';
 
 const router = Router();
@@ -58,7 +58,7 @@ router.post('/', (req, res) => {
             ', '
           )} WHERE user_id = ?`,
           params,
-          function (err) {
+          function (this: RunResult, err) {
             if (err) {
               return res.status(400).json({ error: 'Failed to update profile.' });
             }
@@ -71,7 +71,7 @@ router.post('/', (req, res) => {
           `INSERT INTO user_profiles (user_id, first_name, last_name, date_of_birth, gender, country)
            VALUES (?, ?, ?, ?, ?, ?)`,
           [userId, firstName, lastName, dateOfBirth, gender, country],
-          function (err) {
+          function (this: RunResult, err) {
             if (err) {
               return res.status(400).json({ error: 'Failed to create profile.' });
             }
@@ -99,3 +99,4 @@ router.get('/:userId', (req, res) => {
 });
 
 export default router;
+

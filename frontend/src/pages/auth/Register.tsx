@@ -12,16 +12,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Globe } from "lucide-react";
-import { Flower2, ArrowLeft, Heart, Sparkles, Shield, ArrowRight } from "lucide-react";
-import { setCurrentUser, createUser } from "@/lib/database";
+import { Flower2, ArrowLeft, Heart, Sparkles, Shield, ArrowRight, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiAuth } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -30,6 +32,7 @@ const Register = () => {
     userType: "" as "fighter" | "survivor" | "wellness" | "",
     language: "en" as "ar" | "en",
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const userTypes = [
     {
@@ -57,6 +60,7 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     // Validation
     if (!formData.name || !formData.email || !formData.password || !formData.userType) {
@@ -65,6 +69,7 @@ const Register = () => {
         description: t('auth.fill_all_fields'),
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -74,6 +79,7 @@ const Register = () => {
         description: t('auth.passwords_not_match'),
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -83,41 +89,28 @@ const Register = () => {
         description: t('auth.password_min_length'),
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
     try {
-      const response = await fetch("http://localhost:4000/api/users/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: formData.name,
-          email: formData.email,
-          password: formData.password,
-          userType: formData.userType,
-          language: formData.language,
-        }),
+      const data = await apiAuth.register({
+        username: formData.name,
+        email: formData.email,
+        password: formData.password,
+        userType: formData.userType,
+        language: formData.language,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 409) {
-           throw new Error(data.error || t('auth.user_exists'));
-        }
-        throw new Error(data.error || data.message || t('auth.error_occurred'));
-      }
-
-      // store user in app state (Node API returns id, username, email)
-      const appUser = {
-        id: String(data.id),
-        name: data.username || data.name || formData.name,
+      // Store user with token
+      login({
+        id: data.id,
+        username: data.username,
         email: data.email,
-        userType: formData.userType || 'wellness',
-        createdAt: new Date().toISOString(),
-        language: formData.language,
-      };
-      setCurrentUser(appUser as Record<string, unknown>);
+        userType: data.userType || 'wellness',
+        language: data.language || 'en',
+        token: data.token,
+      });
 
       toast({
         title: t('auth.registration_successful'),
@@ -125,29 +118,15 @@ const Register = () => {
       });
 
       navigate(`/questionnaire/${formData.userType}`);
-    } catch (error: Error | unknown) {
-       console.warn("Backend API failed, trying local storage fallback...");
-       try {
-         const newUser = createUser({
-           name: formData.name,
-           email: formData.email,
-           password: formData.password,
-           userType: (formData.userType as "fighter" | "survivor" | "wellness") || "wellness",
-           language: formData.language,
-         });
-         setCurrentUser(newUser);
-         toast({
-           title: t('auth.registration_successful'),
-           description: t('auth.welcome_hopebloom', { name: formData.name }),
-         });
-         navigate(`/questionnaire/${formData.userType}`);
-       } catch (localError: Error | unknown) {
-         toast({
-           title: t('auth.registration_failed'),
-           description: localError.message || t('auth.error_occurred'),
-           variant: "destructive",
-         });
-       }
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast({
+        title: t('auth.registration_failed'),
+        description: error.message || t('auth.error_occurred'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -266,13 +245,18 @@ const Register = () => {
                       key={type.id}
                       onClick={() => setFormData({ ...formData, userType: type.id })}
                       className={`
-                        cursor-pointer p-4 transition-smooth hover:scale-105
+                        cursor-pointer p-4 transition-all duration-200 hover:scale-105 relative
                         ${isSelected 
-                          ? "ring-2 ring-primary shadow-glow bg-white" 
-                          : "bg-white/80 hover:shadow-soft"
+                          ? "ring-2 ring-primary shadow-lg bg-gradient-to-br from-white to-pink-50 border-primary" 
+                          : "bg-white/80 hover:shadow-md border border-gray-200"
                         }
                       `}
                     >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 bg-primary rounded-full p-1">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
                       <div className="space-y-3">
                         <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${type.gradient} flex items-center justify-center mx-auto`}>
                           <Icon className="w-6 h-6 text-white" />

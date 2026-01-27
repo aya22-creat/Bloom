@@ -7,7 +7,8 @@
       "personalized_care": "Personalized Care",
       "ai_powered_support": "AI-Powered Support",
       "holistic_wellness": "Holistic Wellness"
-    },
+    }
+  },
   "mental": {
     "mental_wellness": "Mental Wellness",
     "journaling": "Journaling",
@@ -72,12 +73,12 @@
     "community_forum_desc": "Join a safe, private community of women supporting each other. Share experiences, ask questions, and find strength together.",
     "join_community": "Join Community"
   },
-    "buttons": {
+  "buttons": {
       "create_account": "Create Account",
       "sign_in": "Sign In"
     },
     "footer": "💗 Join thousands of women on their path to wellness"
-  },
+  ,
   "navigation": {
       "home": "Home",
       "dashboard": "Dashboard",
@@ -109,7 +110,15 @@
       "wellness_title": "Your Health Hub",
       "wellness_subtitle": "Prevention is power - stay proactive",
       "user_title": "Your Dashboard",
-      "user_subtitle": "Welcome back to your health journey"
+      "user_subtitle": "Welcome back to your health journey",
+      "ai_assistant_desc": "Chat with your AI assistant for guidance and support",
+      "health_tracker_desc": "Track symptoms, exams, and medications conveniently",
+      "nutrition_plan_desc": "Personalized meal plans and nutrition tips",
+      "exercise_guide_desc": "Gentle exercises and recovery routines",
+      "educational_hub_desc": "Reliable information and learning resources",
+      "medical_centers_desc": "Find nearby hospitals and clinics",
+      "mental_wellness_desc": "Support for mental health and resilience",
+      "reminders_desc": "Stay on track with smart reminders"
     },
   "common": {
     "loading": "Loading...",
@@ -217,18 +226,44 @@
     "water_less_4": "Less than 4",
     "water_4_to_8": "Between 4 and 8",
     "water_more_8": "More than 8",
-    "light_exercise": "Do you do any light exercise?"
-  }
-  ,
-  "dashboard": {
-    "ai_assistant_desc": "Chat with your AI assistant for guidance and support",
-    "health_tracker_desc": "Track symptoms, exams, and medications conveniently",
-    "nutrition_plan_desc": "Personalized meal plans and nutrition tips",
-    "exercise_guide_desc": "Gentle exercises and recovery routines",
-    "educational_hub_desc": "Reliable information and learning resources",
-    "medical_centers_desc": "Find nearby hospitals and clinics",
-    "mental_wellness_desc": "Support for mental health and resilience",
-    "reminders_desc": "Stay on track with smart reminders"
+    "light_exercise": "Do you do any light exercise?",
+    "wellness": {
+      "health_assessment_title": "Health Assessment",
+      "breast_changes": "Have you experienced any changes in your breasts?",
+      "breast_change_options": {
+        "no-changes": "No Changes",
+        "swelling": "Swelling",
+        "discharge": "Discharge",
+        "skin-change": "Skin Change"
+      },
+      "pain_or_lumps": "Have you noticed any pain or unusual lumps?",
+      "family_history": "Do you have a family history of breast cancer?",
+      "self_exam_frequency": "Do you perform self-exams regularly?",
+      "self_exam_options": {
+        "monthly": "Monthly",
+        "sometimes": "Sometimes",
+        "no": "No"
+      },
+      "last_menstrual_period_optional": "When was your last menstrual period? (Optional)",
+      "hormonal_contraception": "Do you use hormonal contraception?",
+      "chronic_conditions": "Do you have any chronic conditions?",
+      "preventive_care_title": "Preventive Care",
+      "exercise_frequency": "How often do you exercise per week?",
+      "exercise_options": {
+        "daily": "Daily",
+        "three_times": "3 times",
+        "rarely": "Rarely",
+        "not_exercising": "Not exercising"
+      },
+      "diet_quality": "What is your diet like?",
+      "diet_options": {
+        "healthy": "Healthy and balanced",
+        "moderate": "Moderate",
+        "high_fat": "High in fat",
+        "irregular": "Irregular"
+      },
+      "learn_self_exam": "Would you like to learn the steps of self-examination?"
+    }
   },
   "educational": {
     "title": "Educational Hub",

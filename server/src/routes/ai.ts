@@ -1,33 +1,348 @@
-import { Router } from 'express';
-import { GoogleGenAI } from '@google/genai';
+/**
+ * AI API Routes - Production Implementation
+ * 
+ * Controllers that use AIService for AI-powered health guidance
+ * 
+ * CRITICAL RULES:
+ * - Controllers call AIService, NEVER GeminiClient directly
+ * - All inputs must be validated by middleware first
+ * - Errors are caught by error-handler middleware
+ * - All responses include safety metadata
+ */
+
+import { Router, Request, Response, NextFunction } from 'express';
+import { AIService } from '../ai/ai.service';
+import { AITask } from '../ai/types';
+import { AppError } from '../utils/error.util';
+import { HttpStatus } from '../constants/http-status';
 
 const router = Router();
+const aiService = AIService.getInstance();
 
-// The client gets the API key from the environment variable `GEMINI_API_KEY`.
-// Ensure you set GEMINI_API_KEY in your environment before starting the server.
-const ai = new GoogleGenAI({});
-
-router.post('/chat', async (req, res) => {
+/**
+ * ENDPOINT: Get wellness advice
+ * POST /ai/wellness-advice
+ */
+router.post('/wellness-advice', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { prompt, system } = req.body as { prompt?: string; system?: string };
-    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      return res.status(400).json({ error: 'prompt is required' });
+    const userId = (req as any).userId;
+    const { currentSymptoms, goals } = req.body;
+
+    if (!currentSymptoms || !Array.isArray(currentSymptoms)) {
+      throw new AppError('Current symptoms must be an array', HttpStatus.BAD_REQUEST);
     }
 
-    // Combine system prompt with user prompt when provided
-    const contents = system ? `${system}\n\nUser: ${prompt}` : prompt;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents,
+    const response = await aiService.chat(userId, {
+      task: AITask.WELLNESS_ADVICE,
+      userId,
+      input: { currentSymptoms, goals: goals || [] },
+      context: { language: 'en' },
     });
 
-    const text = (response as any)?.text ?? '';
-    return res.json({ text });
-  } catch (err: any) {
-    console.error('Gemini chat error:', err?.message || err);
-    return res.status(500).json({ error: 'Failed to generate AI response' });
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Wellness advice generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get symptom education
+ * POST /ai/symptom-education
+ */
+router.post('/symptom-education', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { symptoms, context } = req.body;
+
+    if (!symptoms || !Array.isArray(symptoms)) {
+      throw new AppError('Symptoms must be an array', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.SYMPTOM_EDUCATION,
+      userId,
+      input: { symptoms, context },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Symptom education generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get medication reminder
+ * POST /ai/medication-reminder
+ */
+router.post('/medication-reminder', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { medicationName, dosage, sideEffects } = req.body;
+
+    if (!medicationName) {
+      throw new AppError('Medication name is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.MEDICATION_REMINDER,
+      userId,
+      input: { medicationName, dosage, sideEffects },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Medication reminder generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get cycle tracking insight
+ * POST /ai/cycle-insight
+ */
+router.post('/cycle-insight', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { cyclePhase, symptoms, daysIntoCycle } = req.body;
+
+    const response = await aiService.chat(userId, {
+      task: AITask.CYCLE_TRACKING_INSIGHT,
+      userId,
+      input: { cyclePhase, symptoms: symptoms || [], daysIntoCycle },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Cycle insight generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Answer health question
+ * POST /ai/health-question
+ */
+router.post('/health-question', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { question, context } = req.body;
+
+    if (!question) {
+      throw new AppError('Question is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.HEALTH_QUESTION,
+      userId,
+      input: { question, context },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Health answer generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get wellness tips
+ * POST /ai/wellness-tips
+ */
+router.post('/wellness-tips', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { topic, focusAreas } = req.body;
+
+    if (!topic) {
+      throw new AppError('Topic is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.WELLNESS_TIPS,
+      userId,
+      input: { topic, focusAreas },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Wellness tips generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get self-exam guidance
+ * POST /ai/self-exam-guidance
+ */
+router.post('/self-exam-guidance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { examType, frequency } = req.body;
+
+    if (!examType) {
+      throw new AppError('Exam type is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.SELF_EXAM_GUIDANCE,
+      userId,
+      input: { examType, frequency },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Self-exam guidance generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get preventive tips
+ * POST /ai/preventive-tips
+ */
+router.post('/preventive-tips', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { topic, ageGroup } = req.body;
+
+    if (!topic) {
+      throw new AppError('Topic is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.PREVENTIVE_TIPS,
+      userId,
+      input: { topic, ageGroup },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Preventive tips generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get lifestyle suggestions
+ * POST /ai/lifestyle-suggestion
+ */
+router.post('/lifestyle-suggestion', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId;
+    const { goal, currentHabits, timeframe } = req.body;
+
+    if (!goal) {
+      throw new AppError('Goal is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.LIFESTYLE_SUGGESTION,
+      userId,
+      input: { goal, currentHabits, timeframe },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Lifestyle suggestion generated',
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: Get appointment preparation guidance
+ * POST /ai/appointment-preparation
+ */
+router.post(
+  '/appointment-preparation',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId;
+      const { appointmentType, concerns } = req.body;
+
+      if (!appointmentType) {
+        throw new AppError('Appointment type is required', HttpStatus.BAD_REQUEST);
+      }
+
+      const response = await aiService.chat(userId, {
+        task: AITask.APPOINTMENT_PREPARATION,
+        userId,
+        input: { appointmentType, concerns },
+        context: { language: 'en' },
+      });
+
+      res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Appointment preparation generated',
+        data: response,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * ENDPOINT: Health check for AI service
+ * GET /ai/health
+ */
+router.get('/health', async (req: Request, res: Response) => {
+  try {
+    const isHealthy = await aiService.healthCheck();
+    const status = isHealthy ? 'healthy' : 'unhealthy';
+
+    res.status(isHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).json({
+      success: isHealthy,
+      status,
+      message: `AI service is ${status}`,
+      provider: aiService.getProviderName(),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      status: 'error',
+      message: 'Failed to check AI service health',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
 export default router;
+

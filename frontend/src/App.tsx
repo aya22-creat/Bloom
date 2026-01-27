@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Welcome from "./pages/auth/Welcome";
 import Onboarding from "./pages/auth/Onboarding";
 import Register from "./pages/auth/Register";
@@ -10,8 +10,7 @@ import Login from "./pages/auth/Login";
 import HealthQuestionnaire from "./pages/health/HealthQuestionnaire";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Profile from "./pages/dashboard/Profile";
-import { Navigate } from "react-router-dom";
-import { getCurrentUser } from "@/lib/database";
+import { useAuth } from "./contexts/AuthContext";
 import AIHealthAssistant from "./pages/health/AIHealthAssistant";
 import HealthTracker from "./pages/health/HealthTracker";
 import NutritionPlan from "./pages/wellness/NutritionPlan";
@@ -25,6 +24,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const DashboardRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={`/dashboard/${user?.userType || 'wellness'}`} replace />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -37,12 +41,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/questionnaire/:userType" element={<HealthQuestionnaire />} />
-          <Route
-            path="/dashboard"
-            element={
-              <Navigate to={`/dashboard/${getCurrentUser()?.userType || 'wellness'}`} replace />
-            }
-          />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/:userType" element={<Dashboard />} />
           <Route path="/profile/:userType" element={<Profile />} />
           <Route path="/ai-assistant/:userType" element={<AIHealthAssistant />} />

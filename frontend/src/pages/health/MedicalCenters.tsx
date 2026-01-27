@@ -16,17 +16,23 @@ import {
   Navigation,
   ExternalLink
 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 const MedicalCenters = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGov, setSelectedGov] = useState("all");
+  const [selectedService, setSelectedService] = useState("all");
 
   const centers = [
     {
       id: 1,
       name: "Cairo Breast Cancer Center",
       type: "Treatment",
-      governorate: "Cairo",
+      governorate: "cairo",
       address: "123 Medical District, Cairo",
       phone: "+20 2 1234 5678",
       hours: "9:00 AM - 5:00 PM",
@@ -37,7 +43,7 @@ const MedicalCenters = () => {
       id: 2,
       name: "Alexandria Women's Health Clinic",
       type: "Examination",
-      governorate: "Alexandria",
+      governorate: "alexandria",
       address: "456 Health Street, Alexandria",
       phone: "+20 3 2345 6789",
       hours: "8:00 AM - 4:00 PM",
@@ -48,7 +54,7 @@ const MedicalCenters = () => {
       id: 3,
       name: "Giza Comprehensive Cancer Center",
       type: "Treatment",
-      governorate: "Giza",
+      governorate: "giza",
       address: "789 Oncology Avenue, Giza",
       phone: "+20 2 3456 7890",
       hours: "24/7",
@@ -59,7 +65,7 @@ const MedicalCenters = () => {
       id: 4,
       name: "Luxor Health & Wellness Center",
       type: "Examination",
-      governorate: "Luxor",
+      governorate: "luxor",
       address: "321 Wellness Road, Luxor",
       phone: "+20 95 4567 8901",
       hours: "10:00 AM - 6:00 PM",
@@ -68,7 +74,19 @@ const MedicalCenters = () => {
     },
   ];
 
-  const governorates = ["All", "Cairo", "Alexandria", "Giza", "Luxor", "Aswan", "Mansoura"];
+  const governorates = ["all", "cairo", "alexandria", "giza", "luxor", "aswan", "mansoura"];
+
+  const filteredCenters = useMemo(() => {
+    return centers.filter((center) => {
+      const matchSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        center.address.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchGov = selectedGov === "all" || center.governorate === selectedGov;
+      const matchService = selectedService === "all" || 
+        center.services.some(s => s.toLowerCase() === selectedService.toLowerCase());
+      
+      return matchSearch && matchGov && matchService;
+    });
+  }, [searchQuery, selectedGov, selectedService]);
 
   return (
     <div className="min-h-screen gradient-blush">
@@ -86,7 +104,7 @@ const MedicalCenters = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
               <Flower2 className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-foreground">Medical Centers</span>
+            <span className="text-xl font-bold text-foreground">{t('navigation.medical_centers')}</span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -113,11 +131,10 @@ const MedicalCenters = () => {
           <div className="space-y-4 mb-6">
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <MapPin className="w-6 h-6 text-primary" />
-              Find Specialized Medical Centers in Egypt
+              {t('navigation.medical_centers')} 
             </h2>
             <p className="text-muted-foreground">
-              Discover specialized breast health centers, doctors, and services near you. 
-              All information includes addresses, phone numbers, and opening hours.
+              {t('dashboard.medical_centers_desc')}
             </p>
           </div>
 

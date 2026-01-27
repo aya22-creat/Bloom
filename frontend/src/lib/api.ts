@@ -1,20 +1,48 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
 
+// Get auth token from localStorage
+const getAuthToken = (): string | null => {
+  try {
+    const authData = localStorage.getItem('hopebloom_auth');
+    if (authData) {
+      const { token } = JSON.parse(authData);
+      return token;
+    }
+  } catch (error) {
+    console.error('Failed to get auth token:', error);
+  }
+  return null;
+};
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   });
+  
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    let errorMessage = `Request failed: ${res.status}`;
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = text || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }
 
 // Auth
 export const apiAuth = {
-  register: (payload: { username: string; email: string; password: string }) =>
+  register: (payload: { username: string; email: string; password: string; userType?: string; language?: string }) =>
     request('/users/register', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload: { email: string; password: string }) =>
     request('/users/login', { method: 'POST', body: JSON.stringify(payload) }),

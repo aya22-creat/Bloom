@@ -15,18 +15,19 @@ import {
   LogOut,
   Flower2
 } from "lucide-react";
-import { getCurrentUser, logoutUser } from "@/lib/database";
+import { logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { DoctorReportButton } from "@/components/health/DoctorReportButton";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const [userName, setUserName] = useState<string>("");
+  const { user, isAuthenticated } = useAuth();
   const [stats, setStats] = useState({
     nextAppointment: 3,
     wellnessScore: 8,
@@ -35,16 +36,13 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      setUserName(user.name);
-    } else {
+    if (!isAuthenticated || !user) {
       navigate("/login");
     }
-  }, [navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   // Use route param if present, otherwise fall back to stored current user
-  const effectiveUserType = userType || getCurrentUser()?.userType || 'wellness';
+  const effectiveUserType = userType || user?.userType || 'wellness';
 
   const handleFeatureClick = (route: string) => {
     const target = `/${route}/${effectiveUserType}`;
@@ -199,7 +197,7 @@ const Dashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                {userName ? `Welcome back, ${userName}!` : info.title}
+                {user?.username ? `Welcome back, ${user.username}!` : info.title}
               </h1>
               <p className="text-white/90 text-lg">{info.subtitle}</p>
             </div>

@@ -1,25 +1,32 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Flower2, ArrowLeft, ArrowRight } from "lucide-react";
-import { loginUser, getCurrentUser, setCurrentUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { apiAuth } from "@/lib/api";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { login, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already authenticated
+  if (isAuthenticated && user) {
+    navigate(`/dashboard/${user.userType}`);
+    return null;
+  }
 
  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -36,66 +43,36 @@ const Login = () => {
   }
 
     try {
-    const response = await fetch("http://localhost:4000/api/users/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+    const data = await apiAuth.login(formData);
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || data.message || t('auth.invalid_credentials'));
-    }
-
-    // Node API returns user info (id, username, email)
-    const appUser = {
-      id: String(data.id),
-      name: data.username || data.name || "",
+    // Store user data with token
+    login({
+      id: data.id,
+      username: data.username,
       email: data.email,
       userType: data.userType || 'wellness',
-      createdAt: new Date().toISOString(),
-    };
-    setCurrentUser(appUser as Record<string, unknown>);
+      language: data.language || 'en',
+      token: data.token,
+    });
 
     toast({
       title: t('auth.welcome_back'),
-      description: t('auth.greeting', { name: data.username || data.name }),
+      description: t('auth.greeting', { name: data.username }),
     });
 
-    navigate(`/dashboard/${appUser.userType}`);
-  } catch (error: Error | unknown) {
-    console.warn("Backend API failed, trying local storage fallback...");
-    // Fallback to local storage
-    const localUser = loginUser(formData.email, formData.password);
-    if (localUser) {
-      setCurrentUser(localUser);
-      toast({
-        title: t('auth.welcome_back'),
-        description: t('auth.greeting', { name: localUser.name }),
-      });
-      navigate(`/dashboard/${localUser.userType}`);
-      setIsLoading(false);
-      return;
-    }
-
+    navigate(`/dashboard/${data.userType || 'wellness'}`);
+  } catch (error: any) {
+    console.error("Login error:", error);
     toast({
       title: t('auth.login_failed'),
       description: error.message || t('auth.invalid_credentials'),
       variant: "destructive",
     });
+  } finally {
+    setIsLoading(false);
   }
-
-  setIsLoading(false);
 };
 
-
-  // Check if user is already logged in
-  const currentUser = getCurrentUser();
-  if (currentUser) {
-    navigate(`/dashboard/${currentUser.userType}`);
-    return null;
-  }
 
   return (
     <div className="min-h-screen gradient-blush flex items-center justify-center p-4">

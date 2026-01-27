@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Heart, Sparkles, Shield, ArrowRight } from "lucide-react";
+import { Heart, Sparkles, Shield, ArrowRight, Check } from "lucide-react";
 import { getCurrentUser } from "@/lib/database";
 
 type UserType = "fighter" | "survivor" | "wellness" | null;
@@ -82,13 +82,18 @@ const Onboarding = () => {
                 key={type.id}
                 onClick={() => setSelectedType(type.id)}
                 className={`
-                  cursor-pointer p-6 transition-smooth hover:scale-105
+                  cursor-pointer p-6 transition-all duration-200 hover:scale-105 relative
                   ${isSelected 
-                    ? "ring-2 ring-primary shadow-glow bg-white" 
-                    : "bg-white/80 hover:shadow-soft"
+                    ? "ring-2 ring-primary shadow-lg bg-gradient-to-br from-white to-pink-50 border-primary" 
+                    : "bg-white/80 hover:shadow-md border border-gray-200"
                   }
                 `}
               >
+                {isSelected && (
+                  <div className="absolute top-4 right-4 bg-primary rounded-full p-1.5">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                )}
                 <div className="space-y-4">
                   <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${type.gradient} flex items-center justify-center mb-4`}>
                     <Icon className="w-8 h-8 text-white" />
@@ -105,12 +110,6 @@ const Onboarding = () => {
                       {type.description}
                     </p>
                   </div>
-
-                  {isSelected && (
-                    <div className="pt-2">
-                      <div className="w-full h-1 bg-gradient-to-r from-primary to-accent rounded-full" />
-                    </div>
-                  )}
                 </div>
               </Card>
             );

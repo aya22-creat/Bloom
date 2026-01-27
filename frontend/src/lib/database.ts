@@ -21,6 +21,7 @@ export interface User {
 
 const DB_KEY = "hopebloom_users";
 const CURRENT_USER_KEY = "hopebloom_current_user";
+const AUTH_USER_KEY = "hopebloom_auth"; // fallback to new auth storage
 
 // Get all users
 export const getAllUsers = (): User[] => {
@@ -88,8 +89,31 @@ export const setCurrentUser = (user: User | null): void => {
 
 // Get current logged-in user
 export const getCurrentUser = (): User | null => {
+  // Primary: legacy current user
   const user = localStorage.getItem(CURRENT_USER_KEY);
-  return user ? JSON.parse(user) : null;
+  if (user) return JSON.parse(user);
+
+  // Fallback: new auth context storage
+  const auth = localStorage.getItem(AUTH_USER_KEY);
+  if (auth) {
+    try {
+      const parsed = JSON.parse(auth);
+      return {
+        id: String(parsed.id ?? ""),
+        name: parsed.username || parsed.email || "User",
+        email: parsed.email || "",
+        password: "", // not stored
+        userType: parsed.userType || "wellness",
+        createdAt: new Date().toISOString(),
+        language: parsed.language,
+      } as User;
+    } catch (error) {
+      console.error("Failed to parse auth user:", error);
+      return null;
+    }
+  }
+
+  return null;
 };
 
 // Login user

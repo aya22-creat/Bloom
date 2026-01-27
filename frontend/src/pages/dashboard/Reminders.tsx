@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -18,10 +19,10 @@ import {
   Trash2,
   Clock
 } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/database";
 
 type ReminderType = "checkup" | "appointment" | "water" | "exercise";
 type ReminderDay = "monday" | "wednesday" | "friday";

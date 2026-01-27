@@ -35,9 +35,9 @@ const fighterSchema = z.object({
   stage: z.string().min(1, "Please select a stage"),
   surgery: z.string().min(1, "Please select an option"),
   chemotherapy: z.string().min(1, "Please select an option"),
-  chemoSessions: z.string().optional(),
+  chemoSessions: z.string().optional().or(z.literal("")),
   radiation: z.string().min(1, "Please select an option"),
-  radiationSessions: z.string().optional(),
+  radiationSessions: z.string().optional().or(z.literal("")),
   hormoneTherapy: z.string().min(1, "Please select an option"),
   sideEffects: z.array(z.string()).optional(),
   psychologicalState: z.string().min(1, "Please select your state"),
@@ -68,7 +68,7 @@ const wellnessSchema = z.object({
   painOrLumps: z.string().min(1, "Please select an option"),
   familyHistory: z.string().min(1, "Please select an option"),
   selfExamFrequency: z.string().min(1, "Please select frequency"),
-  lastMenstrualPeriod: z.string().optional(),
+  lastMenstrualPeriod: z.string().optional().or(z.literal("")),
   hormonalContraception: z.string().min(1, "Please select an option"),
   chronicConditions: z.string().min(1, "Please select an option"),
   exerciseFrequency: z.string().min(1, "Please select frequency"),
@@ -103,6 +103,25 @@ const HealthQuestionnaire = () => {
     defaultValues: {},
   });
 
+  const stepFieldsByType: Record<string, string[][]> = {
+    fighter: [
+      ['stage','surgery','chemotherapy','chemoSessions','radiation','radiationSessions','hormoneTherapy'],
+      ['sideEffects'],
+      ['psychologicalState','supportNetwork','professionalSupport'],
+      ['specialDiet','waterIntake','exercise'],
+    ],
+    survivor: [
+      ['lastTreatment','regularFollowUp','lastExam'],
+      ['currentMedication','worryAboutRelapse','psychologicalSupport','moodBooster'],
+      ['balancedDiet','physicalActivity','sleepQuality'],
+    ],
+    wellness: [
+      ['breastChanges','painOrLumps','familyHistory','selfExamFrequency','lastMenstrualPeriod'],
+      ['hormonalContraception','chronicConditions'],
+      ['exerciseFrequency','dietQuality','learnSelfExam'],
+    ],
+  };
+
   const onSubmit = (data: FormData) => {
     // Calculate health risk index
     const score = calculateHealthScore(data);
@@ -114,28 +133,22 @@ const HealthQuestionnaire = () => {
     navigate(`/dashboard/${userType}`);
   };
 
+  const stepForField = (name: string) => {
+    const map = stepFieldsByType[userType || 'fighter'] || [];
+    for (let i = 0; i < map.length; i += 1) {
+      if (map[i].includes(name)) return i;
+    }
+    return 0;
+  };
+
   const handleInvalid = (errors: Record<string, unknown>) => {
-    // determine first field with error and jump to its step
     const fieldNames = Object.keys(errors || {});
     if (fieldNames.length === 0) {
       toast({ title: 'Submission failed', description: 'Please complete the form.' });
       return;
     }
 
-    const first = fieldNames[0];
-    const stepForField = (name: string) => {
-      const step0 = ['stage','surgery','chemotherapy','chemoSessions','radiation','radiationSessions','hormoneTherapy'];
-      const step1 = ['sideEffects'];
-      const step2 = ['psychologicalState','supportNetwork','professionalSupport'];
-      const step3 = ['specialDiet','waterIntake','exercise'];
-      if (step0.includes(name)) return 0;
-      if (step1.includes(name)) return 1;
-      if (step2.includes(name)) return 2;
-      if (step3.includes(name)) return 3;
-      return 0;
-    };
-
-    const step = stepForField(first);
+    const step = stepForField(fieldNames[0]);
     setCurrentStep(step);
     toast({ title: 'Please complete required fields', description: `There are errors in step ${step + 1}.` });
   };
@@ -165,6 +178,14 @@ const HealthQuestionnaire = () => {
   const totalSteps = userType === "fighter" ? 4 : userType === "survivor" ? 3 : 3;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
+  // Clear errors for the active step when entering it
+  useEffect(() => {
+    const fields = stepFieldsByType[userType || 'fighter']?.[currentStep] || [];
+    if (fields.length) {
+      form.clearErrors(fields as (keyof FormData)[]);
+    }
+  }, [currentStep, userType, form]);
+
   const renderFighterQuestions = () => {
     const steps = [
       // Step 1: Medical Questions
@@ -177,7 +198,7 @@ const HealthQuestionnaire = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('questionnaire.diagnosis_stage')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select stage" />
@@ -202,7 +223,7 @@ const HealthQuestionnaire = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('questionnaire.surgery_type')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select option" />
@@ -227,7 +248,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>{t('questionnaire.chemotherapy_status')}</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="chemo-yes" />
                     <Label htmlFor="chemo-yes">{t('common.yes')}</Label>
@@ -266,7 +287,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>{t('questionnaire.radiation_therapy')}</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="radiation-yes" />
                     <Label htmlFor="radiation-yes">Yes</Label>
@@ -304,7 +325,7 @@ const HealthQuestionnaire = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('questionnaire.hormone_replacement_therapy')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={t('questionnaire.select_option')} />
@@ -383,7 +404,7 @@ const HealthQuestionnaire = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('questionnaire.psychological_state')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select state" />
@@ -407,7 +428,7 @@ const HealthQuestionnaire = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('questionnaire.support_network')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select option" />
@@ -505,7 +526,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>{t('questionnaire.light_exercise')}</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="exercise-yes" />
                     <Label htmlFor="exercise-yes">{t('common.yes')}</Label>
@@ -562,7 +583,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>Do you have regular follow-up appointments?</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="followup-yes" />
                     <Label htmlFor="followup-yes">Yes</Label>
@@ -608,7 +629,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>Are you still taking medications or supplements?</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="meds-yes" />
                     <Label htmlFor="meds-yes">Yes</Label>
@@ -659,7 +680,7 @@ const HealthQuestionnaire = () => {
             <FormItem>
               <FormLabel>Do you need psychological support?</FormLabel>
               <FormControl>
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                <RadioGroup onValueChange={field.onChange} value={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="support-yes" />
                     <Label htmlFor="support-yes">Yes</Label>
@@ -784,14 +805,14 @@ const HealthQuestionnaire = () => {
     const steps = [
       // Step 1: Health Assessment
       <div key="assessment" className="space-y-6">
-        <h3 className="text-2xl font-semibold text-foreground mb-4">Health Assessment</h3>
+        <h3 className="text-2xl font-semibold text-foreground mb-4">{t('questionnaire.wellness.health_assessment_title')}</h3>
         
         <FormField
           control={form.control}
           name="breastChanges"
           render={() => (
             <FormItem>
-              <FormLabel>Have you experienced any changes in your breasts?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.breast_changes')}</FormLabel>
               <div className="space-y-3">
                 {["no-changes", "swelling", "discharge", "skin-change"].map((change) => (
                   <FormField
@@ -806,6 +827,7 @@ const HealthQuestionnaire = () => {
                         >
                           <FormControl>
                             <Checkbox
+                              className="rounded-[6px] border-2"
                               checked={field.value?.includes(change)}
                               onCheckedChange={(checked) => {
                                 return checked
@@ -818,8 +840,8 @@ const HealthQuestionnaire = () => {
                               }}
                             />
                           </FormControl>
-                          <FormLabel className="font-normal capitalize">
-                            {change.replace("-", " ")}
+                          <FormLabel className="font-normal">
+                            {t(`questionnaire.wellness.breast_change_options.${change}`)}
                           </FormLabel>
                         </FormItem>
                       );
@@ -837,16 +859,16 @@ const HealthQuestionnaire = () => {
           name="painOrLumps"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Have you noticed any pain or unusual lumps?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.pain_or_lumps')}</FormLabel>
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="no" id="pain-no" />
-                    <Label htmlFor="pain-no">No</Label>
+                    <Label htmlFor="pain-no">{t('common.no')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="pain-yes" />
-                    <Label htmlFor="pain-yes">Yes</Label>
+                    <Label htmlFor="pain-yes">{t('common.yes')}</Label>
                   </div>
                 </RadioGroup>
               </FormControl>
@@ -860,17 +882,17 @@ const HealthQuestionnaire = () => {
           name="familyHistory"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Do you have a family history of breast cancer?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.family_history')}</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select option" />
+                    <SelectValue placeholder={t('questionnaire.select_option')} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="yes">Yes</SelectItem>
-                  <SelectItem value="no">No</SelectItem>
-                  <SelectItem value="unsure">Unsure</SelectItem>
+                  <SelectItem value="yes">{t('common.yes')}</SelectItem>
+                  <SelectItem value="no">{t('common.no')}</SelectItem>
+                  <SelectItem value="unsure">{t('common.unsure')}</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -883,17 +905,17 @@ const HealthQuestionnaire = () => {
           name="selfExamFrequency"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Do you perform self-exams regularly?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.self_exam_frequency')}</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder={t('questionnaire.select_option')} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="sometimes">Sometimes</SelectItem>
-                  <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="monthly">{t('questionnaire.wellness.self_exam_options.monthly')}</SelectItem>
+                    <SelectItem value="sometimes">{t('questionnaire.wellness.self_exam_options.sometimes')}</SelectItem>
+                    <SelectItem value="no">{t('questionnaire.wellness.self_exam_options.no')}</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -906,9 +928,9 @@ const HealthQuestionnaire = () => {
           name="lastMenstrualPeriod"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>When was your last menstrual period? (Optional)</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.last_menstrual_period_optional')}</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input type="date" value={field.value || ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -916,7 +938,7 @@ const HealthQuestionnaire = () => {
         />
       </div>,
 
-      // Step 1: Medical History
+      // Step 2: Medical History
       <div key="medical" className="space-y-6">
         <h3 className="text-2xl font-semibold text-foreground mb-4">{t('questionnaire.medical_history')}</h3>
         
@@ -925,16 +947,16 @@ const HealthQuestionnaire = () => {
           name="hormonalContraception"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Do you use hormonal contraception?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.hormonal_contraception')}</FormLabel>
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="contraception-yes" />
-                    <Label htmlFor="contraception-yes">Yes</Label>
+                    <Label htmlFor="contraception-yes">{t('common.yes')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="no" id="contraception-no" />
-                    <Label htmlFor="contraception-no">No</Label>
+                    <Label htmlFor="contraception-no">{t('common.no')}</Label>
                   </div>
                 </RadioGroup>
               </FormControl>
@@ -948,16 +970,16 @@ const HealthQuestionnaire = () => {
           name="chronicConditions"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Do you have any chronic conditions?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.chronic_conditions')}</FormLabel>
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="chronic-yes" />
-                    <Label htmlFor="chronic-yes">Yes</Label>
+                    <Label htmlFor="chronic-yes">{t('common.yes')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="no" id="chronic-no" />
-                    <Label htmlFor="chronic-no">No</Label>
+                    <Label htmlFor="chronic-no">{t('common.no')}</Label>
                   </div>
                 </RadioGroup>
               </FormControl>
@@ -969,25 +991,25 @@ const HealthQuestionnaire = () => {
 
       // Step 3: Preventive Care
       <div key="preventive" className="space-y-6">
-        <h3 className="text-2xl font-semibold text-foreground mb-4">Preventive Care</h3>
+        <h3 className="text-2xl font-semibold text-foreground mb-4">{t('questionnaire.wellness.preventive_care_title')}</h3>
         
         <FormField
           control={form.control}
           name="exerciseFrequency"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>How often do you exercise per week?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.exercise_frequency')}</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder={t('questionnaire.select_option')} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="3-times">3 times</SelectItem>
-                  <SelectItem value="rarely">Rarely</SelectItem>
-                  <SelectItem value="not-exercising">Not exercising</SelectItem>
+                  <SelectItem value="daily">{t('questionnaire.wellness.exercise_options.daily')}</SelectItem>
+                  <SelectItem value="3-times">{t('questionnaire.wellness.exercise_options.three_times')}</SelectItem>
+                  <SelectItem value="rarely">{t('questionnaire.wellness.exercise_options.rarely')}</SelectItem>
+                  <SelectItem value="not-exercising">{t('questionnaire.wellness.exercise_options.not_exercising')}</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -1000,18 +1022,18 @@ const HealthQuestionnaire = () => {
           name="dietQuality"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>What is your diet like?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.diet_quality')}</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select option" />
+                    <SelectValue placeholder={t('questionnaire.select_option')} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="healthy">Healthy and balanced</SelectItem>
-                  <SelectItem value="moderate">Moderate</SelectItem>
-                  <SelectItem value="high-fat">High in fat</SelectItem>
-                  <SelectItem value="irregular">Irregular</SelectItem>
+                  <SelectItem value="healthy">{t('questionnaire.wellness.diet_options.healthy')}</SelectItem>
+                  <SelectItem value="moderate">{t('questionnaire.wellness.diet_options.moderate')}</SelectItem>
+                  <SelectItem value="high-fat">{t('questionnaire.wellness.diet_options.high_fat')}</SelectItem>
+                  <SelectItem value="irregular">{t('questionnaire.wellness.diet_options.irregular')}</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -1024,16 +1046,16 @@ const HealthQuestionnaire = () => {
           name="learnSelfExam"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Would you like to learn the steps of self-examination?</FormLabel>
+              <FormLabel>{t('questionnaire.wellness.learn_self_exam')}</FormLabel>
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="yes" id="learn-yes" />
-                    <Label htmlFor="learn-yes">Yes</Label>
+                    <Label htmlFor="learn-yes">{t('common.yes')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="no" id="learn-no" />
-                    <Label htmlFor="learn-no">No</Label>
+                    <Label htmlFor="learn-no">{t('common.no')}</Label>
                   </div>
                 </RadioGroup>
               </FormControl>
@@ -1060,9 +1082,28 @@ const HealthQuestionnaire = () => {
     }
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    // Validate only the fields in the current step before moving on
+    const stepFields = stepFieldsByType[userType || 'fighter']?.[currentStep] || [];
+    await form.trigger(stepFields as (keyof FormData)[], { shouldFocus: true });
+
+    // Only block if current step fields have errors; ignore future-step errors.
+    const currentStepHasErrors = stepFields.some((name) => form.getFieldState(name as keyof FormData).invalid);
+    if (currentStepHasErrors) {
+      const firstError = stepFields.find((name) => form.getFieldState(name as keyof FormData).invalid) || stepFields[0];
+      const step = stepForField(firstError || '');
+      setCurrentStep(step);
+      toast({ title: 'Please complete required fields', description: `There are errors in step ${step + 1}.` });
+      return;
+    }
+
     if (currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextIndex = currentStep + 1;
+      const futureFields = stepFieldsByType[userType || 'fighter']?.[nextIndex] || [];
+      if (futureFields.length) {
+        form.clearErrors(futureFields as (keyof FormData)[]);
+      }
+      setCurrentStep(nextIndex);
     }
   };
 

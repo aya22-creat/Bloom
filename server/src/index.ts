@@ -14,6 +14,7 @@ import aiRouter from './routes/ai';
 import journalRouter from './routes/journal';
 import progressRouter from './routes/progress';
 import reportsRouter from './routes/reports';
+import aiCycleRouter from './routes/aiCycle';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -40,6 +41,7 @@ app.use('/api/questionnaire', questionnaireRouter);
 app.use('/api/journal', journalRouter);
 app.use('/api/progress', progressRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/ai-cycle', aiCycleRouter);
 app.use('/api/ai', aiRouter);
 
 app.listen(PORT, () => {

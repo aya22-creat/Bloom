@@ -100,18 +100,26 @@ export const getUserByEmail = (req: Request, res: Response) => {
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    
+    // Strict validation - password must exist and not be empty
+    if (!email || !password || typeof password !== 'string' || password.trim().length === 0) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
     const user = await getUserByEmailDb(email);
     if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+      // Use same error message for security (don't reveal if email exists)
+      return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    // Ensure user has a password set
+    if (!user.password || typeof user.password !== 'string') {
+      return res.status(500).json({ error: 'Account configuration error. Please contact support.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid credentials.' });
+      return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
     const token = generateToken(user.id, user.email);

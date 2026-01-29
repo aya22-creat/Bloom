@@ -19,6 +19,7 @@ import { logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { DoctorReportButton } from "@/components/health/DoctorReportButton";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -161,6 +162,7 @@ const Dashboard = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <LanguageSwitcher />
             <Button variant="ghost" size="icon">
               <Bell className="w-5 h-5" />

@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiAuth } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -132,7 +133,10 @@ const Register = () => {
 
   return (
     <div className="min-h-screen gradient-blush p-4 md:p-8">
-      <LanguageSwitcher />
+      <div className="absolute top-4 right-4 z-20 flex gap-2">
+        <ThemeSwitcher />
+        <LanguageSwitcher />
+      </div>
       <div className="max-w-4xl mx-auto py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">

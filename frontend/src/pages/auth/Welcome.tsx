@@ -3,6 +3,7 @@ import { Heart, Flower2, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -10,8 +11,9 @@ const Welcome = () => {
 
   return (
     <div className="min-h-screen gradient-blush flex items-center justify-center p-4 overflow-hidden relative">
-      {/* Language Switcher */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Language and Theme Switchers */}
+      <div className="absolute top-4 right-4 z-20 flex gap-2">
+        <ThemeSwitcher />
         <LanguageSwitcher />
       </div>
       {/* Floating decorative elements */}

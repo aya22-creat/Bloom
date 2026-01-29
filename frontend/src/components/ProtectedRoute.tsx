@@ -31,14 +31,14 @@ export const ProtectedRoute = ({ children, allowedUserTypes }: ProtectedRoutePro
 
   // Check authentication
   if (!isAuthenticated) {
-    return <Navigate to=\"/login\" replace state={{ from: window.location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: window.location.pathname }} />;
   }
 
   // Check if user data is valid
   if (!user || !user.userType) {
     console.error('User authenticated but missing required data');
     localStorage.removeItem('hopebloom_auth');
-    return <Navigate to=\"/login\" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // Check user type restrictions

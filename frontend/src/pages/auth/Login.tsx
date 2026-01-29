@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { apiAuth } from "@/lib/api";
 
 const Login = () => {
@@ -77,7 +78,10 @@ const Login = () => {
 
   return (
     <div className="min-h-screen gradient-blush flex items-center justify-center p-4">
-      <LanguageSwitcher />
+      <div className="absolute top-4 right-4 z-20 flex gap-2">
+        <ThemeSwitcher />
+        <LanguageSwitcher />
+      </div>
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">

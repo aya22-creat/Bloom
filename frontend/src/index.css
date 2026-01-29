@@ -75,41 +75,58 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 330 30% 8%;
-    --foreground: 327 73% 97%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 330 25% 12%;
-    --card-foreground: 327 73% 97%;
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 330 25% 12%;
-    --popover-foreground: 327 73% 97%;
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 330 81% 60%;
+    --primary: 330 85% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 330 25% 15%;
-    --secondary-foreground: 327 73% 97%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 330 25% 15%;
-    --muted-foreground: 330 15% 65%;
+    --muted: 215 27% 17%;
+    --muted-foreground: 217 10% 65%;
 
-    --accent: 45 93% 65%;
-    --accent-foreground: 330 25% 15%;
+    --accent: 45 100% 70%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 327 73% 97%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 330 25% 20%;
-    --input: 330 25% 20%;
-    --ring: 330 81% 60%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 217 32% 22%;
+    --input: 217 32% 17%;
+    --ring: 330 85% 65%;
+    
+    /* Dark mode custom colors - rich and vibrant */
+    --rose: 330 85% 65%;
+    --rose-light: 330 50% 25%;
+    --blush: 222 47% 14%;
+    --gold: 45 100% 70%;
+    --gold-light: 45 80% 35%;
+    
+    /* Dark mode gradients - dramatic and beautiful */
+    --gradient-rose: linear-gradient(135deg, hsl(330 85% 60%) 0%, hsl(340 100% 70%) 100%);
+    --gradient-blush: linear-gradient(180deg, hsl(222 47% 14%) 0%, hsl(222 47% 11%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 100% 65%) 0%, hsl(35 100% 70%) 100%);
+    
+    /* Dark mode shadows - depth and glow */
+    --shadow-soft: 0 8px 32px -4px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 40px hsl(330 85% 65% / 0.3), 0 0 80px hsl(330 85% 65% / 0.15);
+    
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 330 85% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 217 32% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 32% 22%;
+    --sidebar-ring: 330 85% 65%;
   }
 }
 
@@ -139,6 +156,90 @@ All colors MUST be HSL.
   
   .gradient-gold {
     background: var(--gradient-gold);
+  }
+  
+  /* Dark mode gradient overrides - vibrant and dramatic */
+  .dark .gradient-blush {
+    background: linear-gradient(180deg, hsl(222 47% 14%) 0%, hsl(222 47% 11%) 100%);
+  }
+  
+  .dark .gradient-rose {
+    background: linear-gradient(135deg, hsl(330 85% 60%) 0%, hsl(340 100% 70%) 100%);
+  }
+  
+  .dark .gradient-gold {
+    background: linear-gradient(135deg, hsl(45 100% 65%) 0%, hsl(35 100% 70%) 100%);
+  }
+  
+  /* Dark mode enhancements */
+  .dark .bg-white {
+    background-color: hsl(222 47% 14%) !important;
+  }
+  
+  .dark .bg-white\/80 {
+    background-color: hsl(222 47% 14% / 0.8) !important;
+  }
+  
+  .dark .bg-rose-100 {
+    background-color: hsl(330 50% 25%) !important;
+  }
+  
+  .dark .bg-purple-100 {
+    background-color: hsl(270 50% 25%) !important;
+  }
+  
+  .dark .bg-green-100 {
+    background-color: hsl(150 50% 25%) !important;
+  }
+  
+  .dark .bg-blue-100 {
+    background-color: hsl(210 50% 25%) !important;
+  }
+  
+  .dark .bg-orange-100 {
+    background-color: hsl(30 50% 25%) !important;
+  }
+  
+  .dark .bg-pink-100 {
+    background-color: hsl(340 50% 25%) !important;
+  }
+  
+  .dark .text-rose-600 {
+    color: hsl(330 85% 70%) !important;
+  }
+  
+  .dark .text-purple-600 {
+    color: hsl(270 85% 70%) !important;
+  }
+  
+  .dark .text-green-600 {
+    color: hsl(150 85% 70%) !important;
+  }
+  
+  .dark .text-blue-600 {
+    color: hsl(210 85% 70%) !important;
+  }
+  
+  .dark .text-orange-600 {
+    color: hsl(30 85% 70%) !important;
+  }
+  
+  .dark .text-pink-600 {
+    color: hsl(340 85% 70%) !important;
+  }
+  
+  /* Enhanced shadows for dark mode */
+  .dark .shadow-soft {
+    box-shadow: 0 8px 32px -4px hsl(0 0% 0% / 0.5), 0 0 1px hsl(330 85% 65% / 0.1);
+  }
+  
+  .dark .shadow-glow {
+    box-shadow: 0 0 40px hsl(330 85% 65% / 0.3), 0 0 80px hsl(330 85% 65% / 0.15);
+  }
+  
+  /* Card enhancements for dark mode */
+  .dark [class*="rounded"] {
+    border: 1px solid hsl(217 32% 22%);
   }
   
   .shadow-soft {
@@ -200,4 +301,112 @@ All colors MUST be HSL.
 
 [dir="ltr"] .prose {
   text-align: left;
+}
+
+/* Advanced Dark Mode Enhancements */
+.dark {
+  color-scheme: dark;
+}
+
+/* Better backdrop blur for dark mode */
+.dark .backdrop-blur-sm {
+  backdrop-filter: blur(12px);
+  background-color: hsl(222 47% 14% / 0.85);
+}
+
+/* Glowing buttons in dark mode */
+.dark button[class*="gradient"] {
+  box-shadow: 0 0 30px hsl(330 85% 65% / 0.4), 0 4px 20px hsl(0 0% 0% / 0.3);
+}
+
+.dark button[class*="gradient"]:hover {
+  box-shadow: 0 0 40px hsl(330 85% 65% / 0.6), 0 8px 30px hsl(0 0% 0% / 0.4);
+  transform: translateY(-2px);
+}
+
+/* Enhanced card styling for dark mode */
+.dark .rounded-2xl,
+.dark .rounded-3xl {
+  background: linear-gradient(135deg, hsl(222 47% 16%) 0%, hsl(222 47% 13%) 100%);
+  border: 1px solid hsl(217 32% 25%);
+  box-shadow: 0 8px 32px hsl(0 0% 0% / 0.5), inset 0 1px 0 hsl(330 85% 65% / 0.05);
+}
+
+.dark .rounded-2xl:hover,
+.dark .rounded-3xl:hover {
+  border-color: hsl(330 85% 65% / 0.3);
+  box-shadow: 0 12px 48px hsl(0 0% 0% / 0.6), 0 0 30px hsl(330 85% 65% / 0.15), inset 0 1px 0 hsl(330 85% 65% / 0.1);
+}
+
+/* Input fields in dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(217 32% 17%);
+  border-color: hsl(217 32% 25%);
+  color: hsl(210 40% 98%);
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: hsl(330 85% 65%);
+  box-shadow: 0 0 0 3px hsl(330 85% 65% / 0.2);
+}
+
+/* Stats and metrics glow */
+.dark [class*="text-4xl"],
+.dark [class*="text-3xl"] {
+  text-shadow: 0 0 20px hsl(330 85% 65% / 0.3);
+}
+
+/* Icons with subtle glow */
+.dark svg {
+  filter: drop-shadow(0 0 4px hsl(330 85% 65% / 0.2));
+}
+
+/* Scrollbar styling for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: hsl(222 47% 11%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(217 32% 25%);
+  border-radius: 5px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(330 85% 65%);
+}
+
+/* Improved text contrast */
+.dark .text-muted-foreground {
+  color: hsl(217 10% 75%);
+}
+
+/* Hero section gradient overlay for dark mode */
+.dark [class*="from-rose-500"],
+.dark [class*="from-pink-500"],
+.dark [class*="from-purple-500"] {
+  background: linear-gradient(135deg, hsl(330 85% 55%) 0%, hsl(340 100% 65%) 50%, hsl(270 85% 60%) 100%);
+  box-shadow: 0 0 60px hsl(330 85% 65% / 0.4), inset 0 0 100px hsl(0 0% 0% / 0.2);
+}
+
+/* Animations for dark mode */
+@keyframes dark-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(330 85% 65% / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(330 85% 65% / 0.4);
+  }
+}
+
+.dark .animate-pulse {
+  animation: dark-glow 2s ease-in-out infinite;
 }

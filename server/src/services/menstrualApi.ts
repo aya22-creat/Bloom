@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-const API_KEY = process.env.RAPIDAPI_CYCLE_KEY;
-const API_HOST = process.env.RAPIDAPI_CYCLE_HOST;
+const API_KEY = process.env.RAPIDAPI_KEY;
+const API_HOST = process.env.RAPIDAPI_HOST;
 
 export interface CycleHistory {
   start_date: string; // YYYY-MM-DD

@@ -65,6 +65,9 @@ const AIHealthAssistant = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [symptomText, setSymptomText] = useState<string>("");
+  const [symptomResult, setSymptomResult] = useState<string>("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -262,6 +265,53 @@ const AIHealthAssistant = () => {
   const handleSuggestionClick = (suggestion: string) => {
     setMessage(suggestion);
   };
+
+  const handleSymptomAnalysis = async () => {
+    if (!symptomText.trim()) {
+      toast({
+        title: "Empty Input",
+        description: "Please describe your symptoms first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    const user = getCurrentUser();
+    const responseLang = user?.language || "en";
+
+    try {
+      const system = generateSystemPrompt({
+        userName: user?.name || "User",
+        userType: (user?.userType as "fighter" | "survivor" | "wellness") || "wellness",
+        currentDate: new Date().toLocaleDateString(),
+        language: responseLang,
+      });
+
+      const result = await apiAI.chat({ 
+        prompt: `Analyze these symptoms and provide guidance: ${symptomText}`, 
+        system 
+      });
+      
+      const analysisText = (result as Record<string, unknown>)?.text || generateAIResponse(symptomText);
+      setSymptomResult(analysisText);
+    } catch (error) {
+      const fallbackResponse = generateAIResponse(symptomText);
+      setSymptomResult(fallbackResponse);
+      toast({
+        title: "AI service unavailable",
+        description: "Using local analysis for now.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Persist messages to localStorage whenever they change for the current conversation
   useEffect(() => {
@@ -580,6 +630,7 @@ const AIHealthAssistant = () => {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input */}

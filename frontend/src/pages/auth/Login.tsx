@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,10 +23,11 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect if already authenticated
-  if (isAuthenticated && user) {
-    navigate(`/dashboard/${user.userType}`);
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(`/dashboard/${user.userType}`, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();

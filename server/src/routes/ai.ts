@@ -20,6 +20,50 @@ const router = Router();
 const aiService = AIService.getInstance();
 
 /**
+ * ENDPOINT: Generic chat endpoint
+ * POST /ai/chat
+ * 
+ * This is a general-purpose chat endpoint that accepts a generic prompt
+ * and system message from the frontend. It uses the HEALTH_QUESTION task
+ * to process the request through the AI service.
+ */
+router.post('/chat', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId || 'anonymous';
+    const { prompt, system } = req.body;
+
+    if (!prompt) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        error: 'Prompt is required',
+      });
+    }
+
+    const response = await aiService.chat(userId, {
+      task: AITask.HEALTH_QUESTION,
+      userId,
+      input: { question: prompt, context: system || '' },
+      context: { language: 'en' },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      text: response.content,
+      message: 'Response generated',
+      data: response,
+    });
+  } catch (error) {
+    console.error('[AI Chat Error]', error);
+    const statusCode = error instanceof AppError ? error.statusCode : HttpStatus.INTERNAL_SERVER_ERROR;
+    const message = error instanceof Error ? error.message : 'An error occurred';
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
+/**
  * ENDPOINT: Get wellness advice
  * POST /ai/wellness-advice
  */

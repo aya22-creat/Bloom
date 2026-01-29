@@ -1,144 +1,124 @@
 import dotenv from 'dotenv';
-import sql from 'mssql';
+import sqlite3 from 'sqlite3';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
-
-const config: sql.config = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  server: process.env.DB_SERVER || 'localhost',
-  database: process.env.DB_NAME,
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    enableArithAbort: true,
-  },
-};
 
 export interface RunResult {
   lastID: number;
   changes: number;
 }
 
-class SqlServerAdapter {
-  private pool: sql.ConnectionPool;
+class SqliteAdapter {
+  private db: sqlite3.Database;
 
-  constructor(pool: sql.ConnectionPool) {
-    this.pool = pool;
+  constructor(db: sqlite3.Database) {
+    this.db = db;
   }
 
-  async run(
+  run(
     query: string,
     params: any[] | ((this: RunResult, err: Error | null) => void),
     callback?: (this: RunResult, err: Error | null) => void
-  ): Promise<void> {
+  ): void {
     if (typeof params === 'function') {
       callback = params;
       params = [];
     }
     params = params || [];
 
-    try {
-      const request = this.pool.request();
-      params.forEach((param, index) => {
-        request.input(`param${index}`, param);
-      });
-
-      const result = await request.query(query);
+    this.db.run(query, params, function (this: sqlite3.RunResult, err: Error | null) {
       const runResult: RunResult = {
-        lastID: result.recordset && result.recordset.length > 0 ? result.recordset[0].id : 0,
-        changes: result.rowsAffected[0] || 0,
+        lastID: this?.lastID || 0,
+        changes: this?.changes || 0,
       };
-      
+
       if (callback) {
-        callback.call(runResult, null);
+        callback.call(runResult, err);
       }
-    } catch (err) {
-      if (callback) {
-        const runResult: RunResult = { lastID: 0, changes: 0 };
-        callback.call(runResult, err as Error);
-      }
-    }
+    });
   }
 
-  async get(
+  get(
     query: string,
     params: any[] | ((err: Error | null, row: any) => void),
     callback?: (err: Error | null, row: any) => void
-  ): Promise<void> {
+  ): void {
     if (typeof params === 'function') {
       callback = params;
       params = [];
     }
     params = params || [];
 
-    try {
-      const request = this.pool.request();
-      params.forEach((param, index) => {
-        request.input(`param${index}`, param);
-      });
-
-      const result = await request.query(query);
-      const row = result.recordset && result.recordset.length > 0 ? result.recordset[0] : null;
-      
+    this.db.get(query, params, (err, row) => {
       if (callback) {
-        callback(null, row);
+        callback(err, row);
       }
-    } catch (err) {
-      if (callback) {
-        callback(err as Error, null);
-      }
-    }
+    });
   }
 
-  async all(
+  all(
     query: string,
     params: any[] | ((err: Error | null, rows: any[]) => void),
     callback?: (err: Error | null, rows: any[]) => void
-  ): Promise<void> {
+  ): void {
     if (typeof params === 'function') {
       callback = params;
       params = [];
     }
     params = params || [];
 
-    try {
-      const request = this.pool.request();
-      params.forEach((param, index) => {
-        request.input(`param${index}`, param);
-      });
-
-      const result = await request.query(query);
-      const rows = result.recordset || [];
-      
+    this.db.all(query, params, (err, rows) => {
       if (callback) {
-        callback(null, rows);
+        callback(err, rows || []);
       }
-    } catch (err) {
-      if (callback) {
-        callback(err as Error, []);
-      }
-    }
+    });
   }
 }
 
 export class Database {
-  static db: SqlServerAdapter;
-  private static pool: sql.ConnectionPool;
+  static db: SqliteAdapter;
+  private static sqliteDb: sqlite3.Database;
 
   static async init() {
     try {
-      console.log('📦 Initializing SQL Server connection...');
-      console.log(`   Server: ${config.server}`);
-      console.log(`   Database: ${config.database}`);
-      
-      this.pool = await sql.connect(config);
-      this.db = new SqlServerAdapter(this.pool);
-      
-      console.log('✅ Connected to SQL Server database');
-      await this.createTables();
+      const dbType = process.env.DB_TYPE || 'sqlite';
+
+      if (dbType !== 'sqlite') {
+        throw new Error(`Database type '${dbType}' is not supported. Please use DB_TYPE=sqlite in .env file.`);
+      }
+
+      const dbFile = process.env.DB_FILE || './data/bloomhope.db';
+      const dbPath = path.resolve(dbFile);
+      const dbDir = path.dirname(dbPath);
+
+      // Ensure data directory exists
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+      }
+
+      console.log('📦 Initializing SQLite database...');
+      console.log(`   Database file: ${dbPath}`);
+
+      return new Promise<void>((resolve, reject) => {
+        this.sqliteDb = new sqlite3.Database(dbPath, (err) => {
+          if (err) {
+            console.error('❌ Failed to connect to SQLite database:', err);
+            reject(err);
+            return;
+          }
+
+          this.db = new SqliteAdapter(this.sqliteDb);
+          console.log('✅ Connected to SQLite database');
+
+          this.createTables()
+            .then(() => resolve())
+            .catch((err) => reject(err));
+        });
+      });
     } catch (err) {
-      console.error('❌ Failed to connect to SQL Server:', err);
+      console.error('❌ Failed to initialize database:', err);
       throw err;
     }
   }
@@ -149,41 +129,40 @@ export class Database {
         this.db.run(query, [], function (err) {
           if (err) {
             console.error(`⚠️  Error creating ${tableName}:`, err.message);
+            reject(err);
           } else {
             console.log(`✅ Table ${tableName} ready`);
+            resolve();
           }
-          resolve();
         });
       });
     };
 
     // Users table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='users' AND xtype='U')
-      CREATE TABLE users (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        username NVARCHAR(255) UNIQUE NOT NULL,
-        email NVARCHAR(255) UNIQUE NOT NULL,
-        password NVARCHAR(255) NOT NULL,
-        user_type NVARCHAR(50) DEFAULT 'wellness' CHECK(user_type IN ('fighter', 'survivor', 'wellness')),
-        language NVARCHAR(10) DEFAULT 'en',
-        created_at DATETIME2 DEFAULT GETDATE()
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        user_type TEXT DEFAULT 'wellness' CHECK(user_type IN ('fighter', 'survivor', 'wellness')),
+        language TEXT DEFAULT 'en',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
       'users'
     );
 
     // User Profiles table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='user_profiles' AND xtype='U')
-      CREATE TABLE user_profiles (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT UNIQUE NOT NULL,
-        first_name NVARCHAR(255),
-        last_name NVARCHAR(255),
+      `CREATE TABLE IF NOT EXISTS user_profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
         date_of_birth DATE,
-        gender NVARCHAR(50),
-        country NVARCHAR(255),
-        created_at DATETIME2 DEFAULT GETDATE(),
+        gender TEXT,
+        country TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'user_profiles'
@@ -191,15 +170,14 @@ export class Database {
 
     // Reminders table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='reminders' AND xtype='U')
-      CREATE TABLE reminders (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
-        title NVARCHAR(255) NOT NULL,
-        description NVARCHAR(MAX),
-        reminder_time DATETIME2,
-        is_completed BIT DEFAULT 0,
-        created_at DATETIME2 DEFAULT GETDATE(),
+      `CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        reminder_time DATETIME,
+        is_completed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'reminders'
@@ -207,15 +185,14 @@ export class Database {
 
     // Symptoms table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='symptoms' AND xtype='U')
-      CREATE TABLE symptoms (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
-        symptom_name NVARCHAR(255) NOT NULL,
-        severity INT,
-        notes NVARCHAR(MAX),
-        logged_at DATETIME2 DEFAULT GETDATE(),
-        created_at DATETIME2 DEFAULT GETDATE(),
+      `CREATE TABLE IF NOT EXISTS symptoms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        symptom_name TEXT NOT NULL,
+        severity INTEGER,
+        notes TEXT,
+        logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'symptoms'
@@ -223,14 +200,13 @@ export class Database {
 
     // Self Exams table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='self_exams' AND xtype='U')
-      CREATE TABLE self_exams (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
+      `CREATE TABLE IF NOT EXISTS self_exams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         exam_date DATE NOT NULL,
-        findings NVARCHAR(MAX),
-        notes NVARCHAR(MAX),
-        created_at DATETIME2 DEFAULT GETDATE(),
+        findings TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'self_exams'
@@ -238,15 +214,14 @@ export class Database {
 
     // Cycles table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='cycles' AND xtype='U')
-      CREATE TABLE cycles (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
+      `CREATE TABLE IF NOT EXISTS cycles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         start_date DATE NOT NULL,
         end_date DATE,
-        flow_type NVARCHAR(50),
-        notes NVARCHAR(MAX),
-        created_at DATETIME2 DEFAULT GETDATE(),
+        flow_type TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'cycles'
@@ -254,18 +229,17 @@ export class Database {
 
     // Medications table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='medications' AND xtype='U')
-      CREATE TABLE medications (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
-        name NVARCHAR(255) NOT NULL,
-        dosage NVARCHAR(255),
-        frequency NVARCHAR(255),
+      `CREATE TABLE IF NOT EXISTS medications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        dosage TEXT,
+        frequency TEXT,
         start_date DATE,
         end_date DATE,
-        reason NVARCHAR(MAX),
-        notes NVARCHAR(MAX),
-        created_at DATETIME2 DEFAULT GETDATE(),
+        reason TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'medications'
@@ -273,12 +247,11 @@ export class Database {
 
     // Medication Logs table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='medication_logs' AND xtype='U')
-      CREATE TABLE medication_logs (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        medication_id INT NOT NULL,
-        logged_at DATETIME2 DEFAULT GETDATE(),
-        notes NVARCHAR(MAX),
+      `CREATE TABLE IF NOT EXISTS medication_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        medication_id INTEGER NOT NULL,
+        logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT,
         FOREIGN KEY (medication_id) REFERENCES medications (id) ON DELETE CASCADE
       )`,
       'medication_logs'
@@ -286,15 +259,14 @@ export class Database {
 
     // Questionnaire table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='questionnaire' AND xtype='U')
-      CREATE TABLE questionnaire (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT UNIQUE NOT NULL,
-        health_status NVARCHAR(MAX),
-        risk_factors NVARCHAR(MAX),
-        family_history NVARCHAR(MAX),
-        lifestyle_info NVARCHAR(MAX),
-        submitted_at DATETIME2 DEFAULT GETDATE(),
+      `CREATE TABLE IF NOT EXISTS questionnaire (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        health_status TEXT,
+        risk_factors TEXT,
+        family_history TEXT,
+        lifestyle_info TEXT,
+        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'questionnaire'
@@ -302,15 +274,14 @@ export class Database {
 
     // Journal table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='journal' AND xtype='U')
-      CREATE TABLE journal (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
-        title NVARCHAR(255),
-        content NVARCHAR(MAX),
-        mood NVARCHAR(50),
-        created_at DATETIME2 DEFAULT GETDATE(),
-        updated_at DATETIME2 DEFAULT GETDATE(),
+      `CREATE TABLE IF NOT EXISTS journal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        title TEXT,
+        content TEXT,
+        mood TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'journal'
@@ -318,14 +289,13 @@ export class Database {
 
     // Progress table
     await runQuery(
-      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='progress' AND xtype='U')
-      CREATE TABLE progress (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        user_id INT NOT NULL,
-        activity_type NVARCHAR(255) NOT NULL,
-        activity_value FLOAT,
-        unit NVARCHAR(50),
-        logged_at DATETIME2 DEFAULT GETDATE(),
+      `CREATE TABLE IF NOT EXISTS progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        activity_type TEXT NOT NULL,
+        activity_value REAL,
+        unit TEXT,
+        logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,
       'progress'

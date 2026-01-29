@@ -7,17 +7,13 @@ const router = Router();
 router.get('/:userId', (req, res) => {
   const { userId } = req.params;
   Database.db.all(
-    `SELECT * FROM journal_entries WHERE user_id = ? ORDER BY entry_date DESC`,
+    `SELECT * FROM journal WHERE user_id = ? ORDER BY created_at DESC`,
     [userId],
     (err, rows) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to fetch journal entries.' });
       }
-      const parsed = rows.map((r: any) => ({
-        ...r,
-        tags: r.tags ? JSON.parse(r.tags) : []
-      }));
-      res.json(parsed);
+      res.json(rows);
     }
   );
 });
@@ -26,13 +22,12 @@ router.get('/:userId', (req, res) => {
 router.get('/:userId/:entryId', (req, res) => {
   const { userId, entryId } = req.params;
   Database.db.get(
-    `SELECT * FROM journal_entries WHERE id = ? AND user_id = ?`,
+    `SELECT * FROM journal WHERE id = ? AND user_id = ?`,
     [entryId, userId],
     (err, row: any) => {
       if (err || !row) {
         return res.status(404).json({ error: 'Journal entry not found.' });
       }
-      row.tags = row.tags ? JSON.parse(row.tags) : [];
       res.json(row);
     }
   );
@@ -40,16 +35,18 @@ router.get('/:userId/:entryId', (req, res) => {
 
 // Create journal entry
 router.post('/', (req, res) => {
-  const { user_id, entry_text, mood, tags } = req.body;
+  // Accept both entry_text and content for flexibility
+  const { user_id, entry_text, content, mood, tags } = req.body;
+  const entryContent = entry_text || content || '';
   
-  if (!user_id || !entry_text) {
-    return res.status(400).json({ error: 'user_id and entry_text are required.' });
+  if (!user_id || !entryContent) {
+    return res.status(400).json({ error: 'user_id and entry_text/content are required.' });
   }
 
   Database.db.run(
-    `INSERT INTO journal_entries (user_id, entry_text, mood, tags)
+    `INSERT INTO journal (user_id, title, content, mood)
      VALUES (?, ?, ?, ?)`,
-    [user_id, entry_text, mood || null, tags ? JSON.stringify(tags) : null],
+    [user_id, 'Entry', entryContent, mood || null],
     function (this: RunResult, err) {
       if (err) {
         return res.status(400).json({ error: 'Failed to create journal entry.' });
@@ -62,15 +59,16 @@ router.post('/', (req, res) => {
 // Update journal entry
 router.put('/:entryId', (req, res) => {
   const { entryId } = req.params;
-  const { entry_text, mood, tags } = req.body;
+  const { entry_text, content, mood } = req.body;
+  const entryContent = entry_text || content;
 
-  if (!entry_text) {
-    return res.status(400).json({ error: 'entry_text is required.' });
+  if (!entryContent) {
+    return res.status(400).json({ error: 'entry_text/content is required.' });
   }
 
   Database.db.run(
-    `UPDATE journal_entries SET entry_text = ?, mood = ?, tags = ? WHERE id = ?`,
-    [entry_text, mood || null, tags ? JSON.stringify(tags) : null, entryId],
+    `UPDATE journal SET content = ?, mood = ? WHERE id = ?`,
+    [entryContent, mood || null, entryId],
     function (this: RunResult, err) {
       if (err) {
         return res.status(400).json({ error: 'Failed to update journal entry.' });
@@ -85,7 +83,7 @@ router.delete('/:entryId', (req, res) => {
   const { entryId } = req.params;
 
   Database.db.run(
-    `DELETE FROM journal_entries WHERE id = ?`,
+    `DELETE FROM journal WHERE id = ?`,
     [entryId],
     function (this: RunResult, err) {
       if (err) {

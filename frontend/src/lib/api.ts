@@ -1,15 +1,42 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
 
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000; // Convert to milliseconds
+    // Check if token expires within next 5 minutes
+    return Date.now() >= (exp - 5 * 60 * 1000);
+  } catch (error) {
+    console.error('Failed to parse token:', error);
+    return true;
+  }
+};
+
 // Get auth token from localStorage
 const getAuthToken = (): string | null => {
   try {
     const authData = localStorage.getItem('hopebloom_auth');
     if (authData) {
       const { token } = JSON.parse(authData);
+      
+      // Check if token is expired
+      if (isTokenExpired(token)) {
+        console.warn('Token is expired or expiring soon');
+        // Clear expired auth data
+        localStorage.removeItem('hopebloom_auth');
+        // Redirect to login
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          window.location.href = '/login?expired=true';
+        }
+        return null;
+      }
+      
       return token;
     }
   } catch (error) {
     console.error('Failed to get auth token:', error);
+    localStorage.removeItem('hopebloom_auth');
   }
   return null;
 };
@@ -25,6 +52,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers,
     ...options,
   });
+  
+  // Handle 401 Unauthorized (token expired or invalid)
+  if (res.status === 401) {
+    console.warn('Unauthorized request - clearing auth data');
+    localStorage.removeItem('hopebloom_auth');
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+      window.location.href = '/login?expired=true';
+    }
+    throw new Error('Session expired. Please login again.');
+  }
   
   if (!res.ok) {
     const text = await res.text();

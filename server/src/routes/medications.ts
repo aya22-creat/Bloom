@@ -21,10 +21,13 @@ router.post('/', (req, res) => {
   if (!m.user_id || !m.name) {
     return res.status(400).json({ error: 'user_id and name are required.' });
   }
+  // Map frequency/schedule to match database columns
+  const frequency = m.frequency || (m as any).schedule || null;
+  
   Database.db.run(
-    `INSERT INTO medications (user_id, name, dosage, schedule, start_date, end_date)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [m.user_id, m.name, m.dosage || null, m.schedule || null, m.start_date || null, m.end_date || null],
+    `INSERT INTO medications (user_id, name, dosage, frequency, start_date, end_date, reason, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [m.user_id, m.name, m.dosage || null, frequency, m.start_date || null, m.end_date || null, (m as any).reason || null, m.notes || null],
     function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create medication.' });
       res.status(201).json({ id: this.lastID });

@@ -11,6 +11,7 @@ import HealthQuestionnaire from "./pages/health/HealthQuestionnaire";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Profile from "./pages/dashboard/Profile";
 import { useAuth } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import AIHealthAssistant from "./pages/health/AIHealthAssistant";
 import HealthTracker from "./pages/health/HealthTracker";
 import NutritionPlan from "./pages/wellness/NutritionPlan";
@@ -36,24 +37,119 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Welcome />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/questionnaire/:userType" element={<HealthQuestionnaire />} />
-          <Route path="/dashboard" element={<DashboardRedirect />} />
-          <Route path="/dashboard/:userType" element={<Dashboard />} />
-          <Route path="/profile/:userType" element={<Profile />} />
-          <Route path="/ai-assistant/:userType" element={<AIHealthAssistant />} />
-          <Route path="/health-tracker/:userType" element={<HealthTracker />} />
-          <Route path="/nutrition-plan/:userType" element={<NutritionPlan />} />
-          <Route path="/exercise-guide/:userType" element={<ExerciseGuide />} />
-          <Route path="/educational-hub/:userType" element={<EducationalHub />} />
-          <Route path="/medical-centers/:userType" element={<MedicalCenters />} />
-          <Route path="/mental-wellness/:userType" element={<MentalWellness />} />
-          <Route path="/reminders/:userType" element={<Reminders />} />
-          <Route path="/meditation/:userType" element={<Meditation />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/questionnaire/:userType" 
+            element={
+              <ProtectedRoute>
+                <HealthQuestionnaire />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardRedirect />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dashboard/:userType" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile/:userType" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/ai-assistant/:userType" 
+            element={
+              <ProtectedRoute>
+                <AIHealthAssistant />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/health-tracker/:userType" 
+            element={
+              <ProtectedRoute>
+                <HealthTracker />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/nutrition-plan/:userType" 
+            element={
+              <ProtectedRoute>
+                <NutritionPlan />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/exercise-guide/:userType" 
+            element={
+              <ProtectedRoute>
+                <ExerciseGuide />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/educational-hub/:userType" 
+            element={
+              <ProtectedRoute>
+                <EducationalHub />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/medical-centers/:userType" 
+            element={
+              <ProtectedRoute>
+                <MedicalCenters />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/mental-wellness/:userType" 
+            element={
+              <ProtectedRoute>
+                <MentalWellness />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/reminders/:userType" 
+            element={
+              <ProtectedRoute>
+                <Reminders />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/meditation/:userType" 
+            element={
+              <ProtectedRoute>
+                <Meditation />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* 404 Route - Must be last */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

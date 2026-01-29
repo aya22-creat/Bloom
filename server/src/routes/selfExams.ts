@@ -8,7 +8,7 @@ const router = Router();
 router.get('/:userId', (req, res) => {
   const { userId } = req.params;
   Database.db.all(
-    `SELECT * FROM self_exams WHERE user_id = ? ORDER BY performed_at DESC`,
+    `SELECT * FROM self_exams WHERE user_id = ? ORDER BY exam_date DESC`,
     [userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch self exams.' });
@@ -22,10 +22,13 @@ router.post('/', (req, res) => {
   const e = req.body as SelfExam;
   if (!e.user_id) return res.status(400).json({ error: 'user_id is required.' });
 
+  // Accept various date field names
+  const examDate = (e as any).exam_date || e.date || (e as any).performed_at || new Date().toISOString().split('T')[0];
+
   Database.db.run(
-    `INSERT INTO self_exams (user_id, performed_at, findings, pain_level, notes)
-     VALUES (?, ?, ?, ?, ?)`,
-    [e.user_id, e.performed_at || null, e.findings || null, e.pain_level ?? null, e.notes || null],
+    `INSERT INTO self_exams (user_id, exam_date, findings, notes)
+     VALUES (?, ?, ?, ?)`,
+    [e.user_id, examDate, e.findings || null, e.notes || null],
     function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create self exam.' });
       res.status(201).json({ id: this.lastID });

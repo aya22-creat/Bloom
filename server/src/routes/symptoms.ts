@@ -8,7 +8,7 @@ const router = Router();
 router.get('/:userId', (req, res) => {
   const { userId } = req.params;
   Database.db.all(
-    `SELECT * FROM symptoms WHERE user_id = ? ORDER BY date DESC`,
+    `SELECT * FROM symptoms WHERE user_id = ? ORDER BY logged_at DESC`,
     [userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch symptoms.' });
@@ -20,13 +20,18 @@ router.get('/:userId', (req, res) => {
 // Create symptom
 router.post('/', (req, res) => {
   const s = req.body as Symptom;
-  if (!s.user_id || !s.description || !s.severity) {
-    return res.status(400).json({ error: 'user_id, description and severity are required.' });
+  // Accept both description and symptom_name for flexibility
+  const symptomName = s.description || (s as any).symptom_name || '';
+  const severity = s.severity;
+  
+  if (!s.user_id || !symptomName) {
+    return res.status(400).json({ error: 'user_id and description/symptom_name are required.' });
   }
+  
   Database.db.run(
-    `INSERT INTO symptoms (user_id, date, description, severity, notes)
-     VALUES (?, ?, ?, ?, ?)`,
-    [s.user_id, s.date || null, s.description, s.severity, s.notes || null],
+    `INSERT INTO symptoms (user_id, symptom_name, severity, notes)
+     VALUES (?, ?, ?, ?)`,
+    [s.user_id, symptomName, severity || null, s.notes || null],
     function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create symptom.' });
       res.status(201).json({ id: this.lastID });

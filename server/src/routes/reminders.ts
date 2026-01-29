@@ -27,24 +27,26 @@ router.get('/:userId', (req, res) => {
 // Create reminder
 router.post('/', (req, res) => {
   const reminder = req.body as Reminder;
-  if (!reminder.user_id || !reminder.title || !reminder.type) {
-    return res.status(400).json({ error: 'user_id, title and type are required.' });
+  if (!reminder.user_id || !reminder.title) {
+    return res.status(400).json({ error: 'user_id and title are required.' });
   }
-  const daysText = reminder.days ? JSON.stringify(reminder.days) : null;
-  const enabledVal = reminder.enabled === 0 ? 0 : 1;
+  
+  // Build reminder_time from time and date if provided
+  let reminderTime = reminder.reminder_time || null;
+  if (!reminderTime && reminder.time && reminder.date) {
+    reminderTime = `${reminder.date} ${reminder.time}`;
+  } else if (!reminderTime && reminder.time) {
+    reminderTime = reminder.time;
+  }
+  
   Database.db.run(
-    `INSERT INTO reminders (user_id, title, description, type, time, date, days, interval, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reminders (user_id, title, description, reminder_time)
+     VALUES (?, ?, ?, ?)`,
     [
       reminder.user_id,
       reminder.title,
       reminder.description || null,
-      reminder.type,
-      reminder.time || null,
-      reminder.date || null,
-      daysText,
-      reminder.interval || null,
-      enabledVal,
+      reminderTime,
     ],
     function (this: RunResult, err) {
       if (err) {

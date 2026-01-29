@@ -46,6 +46,40 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/ai-cycle', aiCycleRouter);
 app.use('/api/ai', aiRouter);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// 404 handler - must be after all routes
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    path: req.originalUrl,
+    method: req.method,
+  });
+});
+
+// Global error handler - must be last
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[Global Error Handler]', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
+
+  const statusCode = err.statusCode || err.status || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    success: false,
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
+
 // Start server
 async function startServer() {
   try {

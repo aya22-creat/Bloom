@@ -23,11 +23,35 @@ import Reminders from "./pages/dashboard/Reminders";
 import Meditation from "./pages/wellness/Meditation";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000,
+      onError: (error) => {
+        console.error('Query error:', error);
+      },
+    },
+    mutations: {
+      onError: (error) => {
+        console.error('Mutation error:', error);
+      },
+    },
+  },
+});
 
 const DashboardRedirect = () => {
-  const { user } = useAuth();
-  return <Navigate to={`/dashboard/${user?.userType || 'wellness'}`} replace />;
+  const { user, isAuthenticated } = useAuth();
+  
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  const validUserTypes = ['fighter', 'survivor', 'wellness'];
+  const userType = validUserTypes.includes(user.userType) ? user.userType : 'wellness';
+  
+  return <Navigate to={`/dashboard/${userType}`} replace />;
 };
 
 const App = () => (
@@ -145,6 +169,16 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <Meditation />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Catch invalid protected routes */}
+          <Route 
+            path="/:invalidRoute/:userType" 
+            element={
+              <ProtectedRoute>
+                <NotFound />
               </ProtectedRoute>
             } 
           />

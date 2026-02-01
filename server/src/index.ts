@@ -1,8 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import http from 'http';
 import { Database } from './lib/database';
 import { initializeGeminiAI } from './ai/init';
+import { initializeSocketIO } from './lib/socket';
+import { initializeReminderScheduler } from './lib/scheduler';
+
+// Existing routes
 import userRouter from './routes/user';
 import profileRouter from './routes/profile';
 import remindersRouter from './routes/reminders';
@@ -18,19 +23,30 @@ import progressRouter from './routes/progress';
 import reportsRouter from './routes/reports';
 import aiCycleRouter from './routes/aiCycle';
 
+// New RBAC routes
+import userManagementRouter from './routes/userManagement';
+import chatRouter from './routes/chat';
+import exercisesRouter from './routes/exercises';
+import exerciseEvaluationRouter from './routes/exerciseEvaluation';
+import remindersManagementRouter from './routes/remindersManagement';
+import adminRouter from './routes/admin';
+import doctorRouter from './routes/doctor';
+
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('Bloom Hope Backend Running');
+  res.send('Bloom Hope Backend Running - RBAC Enhanced');
 });
 
+// Existing routes
 app.use('/api/users', userRouter);
 app.use('/api/profiles', profileRouter);
 app.use('/api/reminders', remindersRouter);
@@ -45,6 +61,15 @@ app.use('/api/progress', progressRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/ai-cycle', aiCycleRouter);
 app.use('/api/ai', aiRouter);
+
+// New RBAC routes
+app.use('/api/auth', userManagementRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/exercises', exercisesRouter);
+app.use('/api/exercise-evaluation', exerciseEvaluationRouter);
+app.use('/api/reminders-mgmt', remindersManagementRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/doctor', doctorRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -86,13 +111,22 @@ async function startServer() {
     // Initialize database (must be first)
     await Database.init();
 
+    // Initialize Socket.IO for real-time chat
+    initializeSocketIO(server);
+    console.log('✅ Socket.IO initialized');
+
+    // Initialize reminder scheduler
+    initializeReminderScheduler();
+    console.log('✅ Reminder scheduler initialized');
+
     // Initialize Gemini AI (must be after database)
     await initializeGeminiAI().catch(error => {
       console.warn('⚠️  AI service initialization failed, continuing without AI:', error.message);
     });
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

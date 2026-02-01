@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
@@ -79,6 +80,7 @@ class SqliteAdapter {
 
 export class Database {
   static db: SqliteAdapter;
+  static syncDb: BetterSqlite3.Database; // Synchronous database for repositories
   private static sqliteDb: sqlite3.Database;
 
   static async init() {
@@ -100,6 +102,11 @@ export class Database {
 
       console.log('📦 Initializing SQLite database...');
       console.log(`   Database file: ${dbPath}`);
+
+      // Initialize synchronous database (for repositories)
+      this.syncDb = new BetterSqlite3(dbPath);
+      this.syncDb.pragma('journal_mode = WAL'); // Better concurrency
+      console.log('✅ Synchronous database initialized');
 
       return new Promise<void>((resolve, reject) => {
         this.sqliteDb = new sqlite3.Database(dbPath, (err) => {
@@ -145,7 +152,7 @@ export class Database {
         username TEXT UNIQUE NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        user_type TEXT DEFAULT 'wellness' CHECK(user_type IN ('fighter', 'survivor', 'wellness')),
+        user_type TEXT DEFAULT 'wellness' CHECK(user_type IN ('fighter', 'survivor', 'wellness', 'doctor', 'admin')),
         language TEXT DEFAULT 'en',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -177,6 +184,15 @@ export class Database {
         description TEXT,
         reminder_time DATETIME,
         is_completed INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        target_type TEXT,
+        target_id INTEGER,
+        user_type TEXT,
+        type TEXT,
+        scheduled_time DATETIME,
+        recurrence TEXT,
+        created_by INTEGER,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )`,

@@ -32,7 +32,7 @@ export async function initializeGeminiAI(): Promise<void> {
   try {
     // Step 1: Validate environment variables
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY environment variable is not set. Check .env file.');
@@ -57,19 +57,23 @@ export async function initializeGeminiAI(): Promise<void> {
       maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || '3'),
     });
 
+    await geminiClient.ensureModelAvailable();
+
     console.log(`✓ Gemini client initialized`);
 
     // Step 4: Initialize AI Service with Gemini client
     const aiService = getAIService();
     aiService.initialize(geminiClient);
 
-    // Step 5: Health check
-    const isHealthy = await aiService.healthCheck();
-    if (!isHealthy) {
-      console.warn('⚠️  AI service health check failed - may be network issue');
-      console.log('   Continuing anyway - will retry on first request\n');
-    } else {
-      console.log(`✓ AI service health check passed`);
+    const runStartupHealthCheck = String(process.env.GEMINI_STARTUP_HEALTHCHECK || '').toLowerCase() === 'true';
+    if (runStartupHealthCheck) {
+      const isHealthy = await aiService.healthCheck();
+      if (!isHealthy) {
+        console.warn('⚠️  AI service health check failed - may be network issue');
+        console.log('   Continuing anyway - will retry on first request\n');
+      } else {
+        console.log(`✓ AI service health check passed`);
+      }
     }
 
     console.log('\n✅ Gemini AI initialized successfully!\n');

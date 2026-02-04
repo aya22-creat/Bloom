@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/database";
+import { apiReminders } from "@/lib/api";
 
 type ReminderType = "checkup" | "appointment" | "water" | "exercise";
 type ReminderDay = "monday" | "wednesday" | "friday";
@@ -32,6 +33,7 @@ interface Reminder {
   id: number;
   type: ReminderType;
   contentKey: "monthly_self_exam" | "doctor_appointment" | "drink_water" | "daily_exercise";
+  title: string;
   time: string;
   enabled: boolean;
   date?: string;
@@ -46,81 +48,120 @@ const Reminders = () => {
   const { toast } = useToast();
   const isRTL = i18n.dir() === "rtl";
 
-  const [reminders, setReminders] = useState<Reminder[]>([
-    {
-      id: 1,
-      type: "checkup",
-      contentKey: "monthly_self_exam",
-      time: "09:00",
-      days: ["monday"],
-      enabled: true,
-    },
-    {
-      id: 2,
-      type: "appointment",
-      contentKey: "doctor_appointment",
-      date: "2024-03-15",
-      time: "14:00",
-      enabled: true,
-    },
-    {
-      id: 3,
-      type: "water",
-      contentKey: "drink_water",
-      time: "10:00",
-      interval: "every_2_hours",
-      enabled: true,
-    },
-    {
-      id: 4,
-      type: "exercise",
-      contentKey: "daily_exercise",
-      time: "18:00",
-      days: ["monday", "wednesday", "friday"],
-      enabled: false,
-    },
-  ]);
-
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dailyQuotes, setDailyQuotes] = useState(true);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      const savedReminders = localStorage.getItem(`bloom_reminders_${user.id}`);
-      if (savedReminders) {
-        setReminders(JSON.parse(savedReminders));
+    const fetchReminders = async () => {
+      const user = getCurrentUser();
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const data = await apiReminders.list(user.id);
+        
+        // Transform backend data to frontend format if necessary
+        // Assuming backend returns roughly matching shape but using `title` instead of `contentKey` sometimes
+        // For now, we map safely
+        const mapped: Reminder[] = data.map((r: any) => ({
+            id: r.id,
+            type: r.type,
+            contentKey: r.contentKey || (r.type === 'water' ? 'drink_water' : r.type === 'checkup' ? 'monthly_self_exam' : 'daily_exercise'), // fallback
+            title: r.title,
+            time: r.time,
+            enabled: r.is_active,
+            date: r.date,
+            days: r.days ? JSON.parse(r.days) : undefined,
+            interval: r.interval
+        }));
+        setReminders(mapped);
+      } catch (err) {
+        console.error("Failed to fetch reminders", err);
+        // Fallback to empty or local if critical
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    
+    fetchReminders();
   }, []);
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      localStorage.setItem(`bloom_reminders_${user.id}`, JSON.stringify(reminders));
-    }
-  }, [reminders]);
-
-  const toggleReminder = (id: number) => {
+  const toggleReminder = async (id: number) => {
     const target = reminders.find((r) => r.id === id);
-    const toggledOn = target ? !target.enabled : true;
-    const title = target ? t(`reminders.defaults.${target.contentKey}.title`) : "";
-    setReminders(reminders.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)));
-    toast({
-      title: toggledOn ? t("reminders.toast_enabled_title") : t("reminders.toast_disabled_title"),
-      description: toggledOn
-        ? t("reminders.toast_enabled_desc", { title })
-        : t("reminders.toast_disabled_desc", { title }),
-    });
+    if (!target) return;
+    
+    const newValue = !target.enabled;
+    // Optimistic update
+    setReminders(reminders.map((r) => (r.id === id ? { ...r, enabled: newValue } : r)));
+    
+    try {
+        await apiReminders.update(id, { is_active: newValue });
+        
+        const title = t(`reminders.defaults.${target.contentKey}.title`) || target.title;
+        toast({
+          title: newValue ? t("reminders.toast_enabled_title") : t("reminders.toast_disabled_title"),
+          description: newValue
+            ? t("reminders.toast_enabled_desc", { title })
+            : t("reminders.toast_disabled_desc", { title }),
+        });
+    } catch (e) {
+        // Revert on fail
+        setReminders(reminders.map((r) => (r.id === id ? { ...r, enabled: !newValue } : r)));
+        toast({ title: "Error", description: "Failed to update reminder", variant: "destructive" });
+    }
   };
 
-  const deleteReminder = (id: number) => {
+  const deleteReminder = async (id: number) => {
     const target = reminders.find((r) => r.id === id);
-    const title = target ? t(`reminders.defaults.${target.contentKey}.title`) : "";
+    if (!target) return;
+    
+    // Optimistic update
     setReminders(reminders.filter(r => r.id !== id));
-    toast({
-      title: t("reminders.toast_deleted_title"),
-      description: t("reminders.toast_deleted_desc", { title }),
-    });
+    
+    try {
+        await apiReminders.remove(id);
+        const title = t(`reminders.defaults.${target.contentKey}.title`) || target.title;
+        toast({
+          title: t("reminders.toast_deleted_title"),
+          description: t("reminders.toast_deleted_desc", { title }),
+        });
+    } catch (e) {
+        // Revert
+        setReminders([...reminders]); // Ideally put it back at index, simplified here
+        toast({ title: "Error", description: "Failed to delete reminder", variant: "destructive" });
+    }
+  };
+
+  const addDefaultReminder = async () => {
+      const user = getCurrentUser();
+      if (!user) return;
+      
+      const newReminder = {
+          userId: user.id,
+          type: "checkup",
+          title: "Monthly Self Exam",
+          contentKey: "monthly_self_exam",
+          time: "09:00",
+          days: JSON.stringify(["monday"]),
+          is_active: true
+      };
+      
+      try {
+          const created = await apiReminders.create(newReminder);
+          const mapped: Reminder = {
+            id: (created as any).id,
+            type: "checkup",
+            contentKey: "monthly_self_exam",
+            title: "Monthly Self Exam",
+            time: "09:00",
+            days: ["monday"],
+            enabled: true
+          };
+          setReminders([...reminders, mapped]);
+      } catch (e) {
+          toast({ title: "Error", description: "Failed to create reminder", variant: "destructive" });
+      }
   };
 
   return (
@@ -193,16 +234,7 @@ const Reminders = () => {
                     <Bell className="w-8 h-8 mx-auto text-primary" />
                     <h4 className="text-lg font-semibold text-foreground">{t("reminders.empty_title")}</h4>
                     <p className="text-sm text-muted-foreground">{t("reminders.empty_desc")}</p>
-                    <Button className="mt-2 gradient-rose text-white" onClick={() => setReminders([
-                      {
-                        id: Date.now(),
-                        type: "checkup",
-                        contentKey: "monthly_self_exam",
-                        time: "09:00",
-                        days: ["monday"],
-                        enabled: true,
-                      },
-                    ])}>
+                    <Button className="mt-2 gradient-rose text-white" onClick={addDefaultReminder}>
                       <Plus className="w-4 h-4 mr-2" />
                       {t("reminders.empty_cta")}
                     </Button>

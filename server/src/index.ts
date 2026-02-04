@@ -6,6 +6,7 @@ import { Database } from './lib/database';
 import { initializeGeminiAI } from './ai/init';
 import { initializeSocketIO } from './lib/socket';
 import { initializeReminderScheduler } from './lib/scheduler';
+import healthLogsRouter from './routes/healthLogs';
 
 // Existing routes
 import userRouter from './routes/user';
@@ -24,13 +25,13 @@ import reportsRouter from './routes/reports';
 import aiCycleRouter from './routes/aiCycle';
 
 // New RBAC routes
-import userManagementRouter from './routes/userManagement';
-import chatRouter from './routes/chat';
-import exercisesRouter from './routes/exercises';
-import exerciseEvaluationRouter from './routes/exerciseEvaluation';
-import remindersManagementRouter from './routes/remindersManagement';
-import adminRouter from './routes/admin';
-import doctorRouter from './routes/doctor';
+// import userManagementRouter from './routes/userManagement';
+// import chatRouter from './routes/chat';
+// import exercisesRouter from './routes/exercises';
+// import exerciseEvaluationRouter from './routes/exerciseEvaluation';
+// import remindersManagementRouter from './routes/remindersManagement';
+// import adminRouter from './routes/admin';
+// import doctorRouter from './routes/doctor';
 
 // Load environment variables
 dotenv.config();
@@ -61,15 +62,16 @@ app.use('/api/progress', progressRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/ai-cycle', aiCycleRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/health-logs', healthLogsRouter);
 
 // New RBAC routes
-app.use('/api/auth', userManagementRouter);
-app.use('/api/chat', chatRouter);
-app.use('/api/exercises', exercisesRouter);
-app.use('/api/exercise-evaluation', exerciseEvaluationRouter);
-app.use('/api/reminders-mgmt', remindersManagementRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/doctor', doctorRouter);
+// app.use('/api/auth', userManagementRouter);
+// app.use('/api/chat', chatRouter);
+// app.use('/api/exercises', exercisesRouter);
+// app.use('/api/exercise-evaluation', exerciseEvaluationRouter);
+// app.use('/api/reminders-mgmt', remindersManagementRouter);
+// app.use('/api/admin', adminRouter);
+// app.use('/api/doctor', doctorRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

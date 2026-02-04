@@ -16,9 +16,11 @@ import AIHealthAssistant from "./pages/health/AIHealthAssistant";
 import HealthTracker from "./pages/health/HealthTracker";
 import NutritionPlan from "./pages/wellness/NutritionPlan";
 import ExerciseGuide from "./pages/education/ExerciseGuide";
+import AIExerciseCoach from "./pages/education/AIExerciseCoach";
 import EducationalHub from "./pages/education/EducationalHub";
 import MedicalCenters from "./pages/health/MedicalCenters";
 import MentalWellness from "./pages/wellness/MentalWellness";
+import CommunityForum from "./pages/wellness/CommunityForum";
 import Reminders from "./pages/dashboard/Reminders";
 import Meditation from "./pages/wellness/Meditation";
 import NotFound from "./pages/NotFound";
@@ -133,6 +135,14 @@ const App = () => (
             } 
           />
           <Route 
+            path="/exercise-coach/:userType" 
+            element={
+              <ProtectedRoute>
+                <AIExerciseCoach />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/educational-hub/:userType" 
             element={
               <ProtectedRoute>
@@ -153,6 +163,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <MentalWellness />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/community-forum/:userType" 
+            element={
+              <ProtectedRoute>
+                <CommunityForum />
               </ProtectedRoute>
             } 
           />

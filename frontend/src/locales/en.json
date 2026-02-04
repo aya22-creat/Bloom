@@ -70,7 +70,17 @@
     "find_counselor": "Find a Counselor",
     "community_forum": "Community Forum",
     "community_forum_desc": "Join a safe, private community of women supporting each other. Share experiences, ask questions, and find strength together.",
-    "join_community": "Join Community"
+    "join_community": "Join Community",
+    "community": {
+      "connected": "Connected to Community",
+      "joined_room": "You have joined the {{room}} community room",
+      "online": "Online",
+      "safety_notice": "This is a safe, supportive space. Please be respectful and kind. All messages are encrypted for your privacy.",
+      "welcome_msg": "Welcome to the Community",
+      "welcome_desc": "Connect with others who understand your journey. Share experiences, ask questions, and find strength together.",
+      "you": "You",
+      "type_message": "Type a message..."
+    }
   },
   "buttons": {
       "create_account": "Create Account",

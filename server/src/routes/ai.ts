@@ -19,6 +19,65 @@ import { HttpStatus } from '../constants/http-status';
 const router = Router();
 const aiService = AIService.getInstance();
 
+let cachedHealth: { healthy: boolean; checkedAt: number } | null = null;
+const HEALTH_TTL_MS = 60_000;
+
+function extractUserTextFromAIContent(content: unknown): { text: string; structured: any | null } {
+  const raw = String(content ?? '');
+
+  const cleanModePrefix = (value: string): string =>
+    value.replace(/^\s*Mode:\s*(PSYCH|HEALTH|MIXED)\s*\n*/i, '').trim();
+
+  const stripCodeFences = (value: string): string =>
+    value.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+  const cleaned = stripCodeFences(raw.trim());
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object') {
+      const answer = typeof (parsed as any).answer === 'string' ? cleanModePrefix((parsed as any).answer) : '';
+      return { text: answer || cleanModePrefix(raw), structured: parsed };
+    }
+  } catch {
+    // ignore
+  }
+
+  const answerMatch = cleaned.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (answerMatch?.[1]) {
+    const extracted = answerMatch[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+    const text = cleanModePrefix(extracted);
+    return { text: text || cleanModePrefix(raw), structured: { answer: text } };
+  }
+
+  return { text: cleanModePrefix(raw), structured: null };
+}
+
+router.get('/status', async (req: Request, res: Response) => {
+  try {
+    const status = aiService.getStatus();
+    const now = Date.now();
+    if (!cachedHealth || now - cachedHealth.checkedAt > HEALTH_TTL_MS) {
+      const healthy = await aiService.healthCheck();
+      cachedHealth = { healthy, checkedAt: now };
+    }
+    res.status(HttpStatus.OK).json({
+      success: true,
+      healthy: cachedHealth.healthy,
+      ...status,
+    });
+  } catch (error) {
+    res.status(HttpStatus.OK).json({
+      success: true,
+      healthy: false,
+      ...aiService.getStatus(),
+    });
+  }
+});
+
 /**
  * ENDPOINT: Generic chat endpoint
  * POST /ai/chat
@@ -30,7 +89,7 @@ const aiService = AIService.getInstance();
 router.post('/chat', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).userId || 'anonymous';
-    const { prompt, system } = req.body;
+    const { prompt, system, history, mode } = req.body;
 
     if (!prompt) {
       return res.status(HttpStatus.BAD_REQUEST).json({
@@ -43,14 +102,25 @@ router.post('/chat', async (req: Request, res: Response, next: NextFunction) => 
       task: AITask.HEALTH_QUESTION,
       userId,
       input: { question: prompt, context: system || '' },
-      context: { language: 'en' },
+      context: { 
+        language: 'en',
+        history: history || [],
+        mode: mode || 'health'
+      },
     });
+
+    const isFallback = response?.metadata?.model === 'fallback-rule-engine';
+    const extracted = extractUserTextFromAIContent(response.content);
 
     res.status(HttpStatus.OK).json({
       success: true,
-      text: response.content,
+      text: extracted.text,
+      fallback: isFallback,
       message: 'Response generated',
-      data: response,
+      data: {
+        ...response,
+        structured: extracted.structured,
+      },
     });
   } catch (error) {
     console.error('[AI Chat Error]', error);
@@ -389,4 +459,3 @@ router.get('/health', async (req: Request, res: Response) => {
 });
 
 export default router;
-

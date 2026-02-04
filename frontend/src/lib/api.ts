@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 // Check if JWT token is expired
 const isTokenExpired = (token: string): boolean => {
@@ -102,49 +102,49 @@ export const apiProfile = {
 // Reminders
 // Reminders
 export const apiReminders = {
-  list: (userId: number) => request(`/reminders/${userId}`),
+  list: (userId: number | string) => request(`/reminders/${userId}`),
   create: (payload: Record<string, unknown>) =>
     request('/reminders', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: Record<string, unknown>) =>
+  update: (id: number | string, payload: Record<string, unknown>) =>
     request(`/reminders/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  remove: (id: number) => request(`/reminders/${id}`, { method: 'DELETE' }),
+  remove: (id: number | string) => request(`/reminders/${id}`, { method: 'DELETE' }),
 };
 
 // Symptoms
 export const apiSymptoms = {
-  list: (userId: number) => request(`/symptoms/${userId}`),
+  list: (userId: number | string) => request(`/symptoms/${userId}`),
   create: (payload: Record<string, unknown>) =>
     request('/symptoms', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: Record<string, unknown>) =>
+  update: (id: number | string, payload: Record<string, unknown>) =>
     request(`/symptoms/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  remove: (id: number) => request(`/symptoms/${id}`, { method: 'DELETE' }),
+  remove: (id: number | string) => request(`/symptoms/${id}`, { method: 'DELETE' }),
 };
 
 // Self Exams
 export const apiSelfExams = {
-  list: (userId: number) => request(`/self-exams/${userId}`),
+  list: (userId: number | string) => request(`/self-exams/${userId}`),
   create: (payload: Record<string, unknown>) =>
     request('/self-exams', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 // Cycles
 export const apiCycles = {
-  list: (userId: number) => request(`/cycles/${userId}`),
+  list: (userId: number | string) => request(`/cycles/${userId}`),
   create: (payload: Record<string, unknown>) =>
     request('/cycles', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: Record<string, unknown>) =>
+  update: (id: number | string, payload: Record<string, unknown>) =>
     request(`/cycles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  remove: (id: number) => request(`/cycles/${id}`, { method: 'DELETE' }),
+  remove: (id: number | string) => request(`/cycles/${id}`, { method: 'DELETE' }),
 };
 
 // Medications
 export const apiMedications = {
-  list: (userId: number) => request(`/medications/${userId}`),
+  list: (userId: number | string) => request(`/medications/${userId}`),
   create: (payload: Record<string, unknown>) =>
     request('/medications', { method: 'POST', body: JSON.stringify(payload) }),
-  update: (id: number, payload: Record<string, unknown>) =>
+  update: (id: number | string, payload: Record<string, unknown>) =>
     request(`/medications/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  remove: (id: number) => request(`/medications/${id}`, { method: 'DELETE' }),
+  remove: (id: number | string) => request(`/medications/${id}`, { method: 'DELETE' }),
 };
 
 // Medication Logs
@@ -168,11 +168,20 @@ export const apiReports = {
 
 // AI Assistant
 export const apiAI = {
-  chat: (payload: { prompt: string; system?: string }) =>
-    request<{ text: string }>(
-      '/ai/chat',
-      { method: 'POST', body: JSON.stringify(payload) },
-    ),
+  chat: async (payload: { prompt: string; system?: string; history?: any[] }) => {
+    const controller = new AbortController();
+    const timeoutMs = 45000;
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await request<{ text: string }>(
+        '/ai/chat',
+        { method: 'POST', body: JSON.stringify(payload), signal: controller.signal },
+      );
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  },
 };
 
 // Journal

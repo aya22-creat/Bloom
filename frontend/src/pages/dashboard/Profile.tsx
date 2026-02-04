@@ -26,6 +26,7 @@ import {
 import { getCurrentUser, updateUser, logoutUser, User } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiProfile } from "@/lib/api";
 
 const Profile = () => {
   const { userType } = useParams<{ userType: string }>();
@@ -45,28 +46,71 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      navigate("/login");
-      return;
-    }
-    setUser(currentUser);
-    setFormData({
-      name: currentUser.name || "",
-      email: currentUser.email || "",
-      age: currentUser.profile?.age?.toString() || "",
-      phone: currentUser.profile?.phone || "",
-      address: currentUser.profile?.address || "",
-      emergencyContact: currentUser.profile?.emergencyContact || "",
-      medicalHistory: currentUser.profile?.medicalHistory || "",
-      language: currentUser.language || "en",
-    });
+    const fetchProfile = async () => {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        navigate("/login");
+        return;
+      }
+      
+      try {
+        // Fetch full profile from API
+        const profileData = await apiProfile.get(currentUser.id);
+        
+        // Merge base user with profile details
+        const mergedUser = {
+          ...currentUser,
+          profile: profileData || {}
+        };
+        setUser(mergedUser);
+        
+        setFormData({
+          name: currentUser.name || "",
+          email: currentUser.email || "",
+          age: profileData?.age?.toString() || currentUser.profile?.age?.toString() || "",
+          phone: profileData?.phone || currentUser.profile?.phone || "",
+          address: profileData?.address || currentUser.profile?.address || "",
+          emergencyContact: profileData?.emergencyContact || currentUser.profile?.emergencyContact || "",
+          medicalHistory: profileData?.medicalHistory || currentUser.profile?.medicalHistory || "",
+          language: currentUser.language || "en",
+        });
+      } catch (err) {
+        console.error("Failed to load profile", err);
+        // Fallback to local
+        setUser(currentUser);
+        setFormData({
+            name: currentUser.name || "",
+            email: currentUser.email || "",
+            age: currentUser.profile?.age?.toString() || "",
+            phone: currentUser.profile?.phone || "",
+            address: currentUser.profile?.address || "",
+            emergencyContact: currentUser.profile?.emergencyContact || "",
+            medicalHistory: currentUser.profile?.medicalHistory || "",
+            language: currentUser.language || "en",
+        });
+      }
+    };
+    
+    fetchProfile();
   }, [navigate]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return;
 
     try {
+      // 1. Update Profile API
+      await apiProfile.upsert({
+        userId: user.id,
+        firstName: formData.name.split(' ')[0], // Simple split
+        lastName: formData.name.split(' ').slice(1).join(' '),
+        dateOfBirth: "", // Not in form yet
+        gender: "Female", // Default for target audience
+        country: "",
+        // Add other fields to payload if API supports them
+        // Note: The backend profile endpoint might need expansion to support all fields
+      });
+      
+      // 2. Update Local/Auth User (legacy)
       const updatedUser = updateUser(user.id, {
         name: formData.name,
         email: formData.email,

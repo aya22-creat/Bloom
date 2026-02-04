@@ -72,6 +72,33 @@ export class AIService {
     console.log(`[AIService] Master prompt loaded (${HOPEBLOOM_SYSTEM_PROMPT.length} chars)`);
   }
 
+  getStatus(): {
+    initialized: boolean;
+    provider: string;
+    model?: string;
+    gemini?: {
+      disabled: boolean;
+      disabledType?: string;
+      disabledStatusCode?: number;
+    };
+  } {
+    if (!this.geminiClient) {
+      return { initialized: false, provider: this.getProviderName() };
+    }
+
+    const summary = this.geminiClient.getStatusSummary();
+    return {
+      initialized: true,
+      provider: this.getProviderName(),
+      model: this.geminiClient.getModel(),
+      gemini: {
+        disabled: summary.disabled,
+        disabledType: summary.disabledType,
+        disabledStatusCode: summary.disabledStatusCode,
+      },
+    };
+  }
+
   /**
    * MAIN API: Generate AI response for user request
    * 
@@ -118,12 +145,30 @@ export class AIService {
       // Step 1: Build task-specific prompt
       const taskPrompt = this.buildTaskPrompt(request.task, request.input);
 
-      // Step 2: Get master system prompt
-      const systemPrompt = HOPEBLOOM_SYSTEM_PROMPT;
+      // Step 2: Get master system prompt and optional frontend mode-specific instructions
+      let explicitModeInstruction = '';
+      if (request.context?.mode) {
+        const mode = request.context.mode.toUpperCase();
+        explicitModeInstruction = `\n\n=== USER SELECTED MODE: ${mode} ===\nThe user has explicitly selected ${mode} mode. You MUST adhere to the ${mode} guidelines above.`;
+      }
+
+      const systemPrompt = [
+        HOPEBLOOM_SYSTEM_PROMPT,
+        request.input.context, // Frontend-generated system prompt
+        explicitModeInstruction
+      ]
+        .filter(Boolean)
+        .join('\n\n=== CONTEXT & INSTRUCTIONS ===\n\n');
 
       // Step 3: Build Gemini request
+      const history = (request.context?.history || []).map(msg => ({
+        role: msg.role,
+        parts: msg.parts
+      }));
+
       const geminiRequest: GeminiRequest = {
         contents: [
+          ...history,
           {
             role: 'user',
             parts: [{ text: taskPrompt }],
@@ -137,6 +182,7 @@ export class AIService {
           maxOutputTokens: 1024,
           topP: 0.95,
           topK: 40,
+          responseMimeType: "application/json"
         },
         safetySettings: [
           {
@@ -158,8 +204,28 @@ export class AIService {
         ],
       };
 
-      // Step 4: Call Gemini API
-      const geminiResponse = await this.geminiClient.generate(geminiRequest);
+      // Step 4: Call Gemini API (prefer online: wait+retry on rate limit)
+      const preferOnline = String(process.env.GEMINI_PREFER_ONLINE || 'true').toLowerCase() === 'true';
+      const maxWaitMs = Number.parseInt(process.env.GEMINI_MAX_WAIT_MS || '20000', 10);
+
+      let geminiResponse: any;
+      try {
+        geminiResponse = await this.geminiClient.generate(geminiRequest);
+      } catch (err: any) {
+        const errorType = err?.type as AIErrorType | undefined;
+        const retryable = Boolean(err?.retryable);
+        const retryAfterSec = Number(err?.details?.retryAfter ?? err?.retryAfter ?? 0);
+
+        if (preferOnline && retryable && errorType === AIErrorType.GEMINI_RATE_LIMIT) {
+          const waitMs = Math.max(0, Math.min(maxWaitMs, retryAfterSec * 1000));
+          if (waitMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+          }
+          geminiResponse = await this.geminiClient.generate(geminiRequest);
+        } else {
+          throw err;
+        }
+      }
 
       // Step 5: Extract and validate response
       const candidate = geminiResponse.candidates[0];
@@ -171,7 +237,7 @@ export class AIService {
         );
       }
 
-      const content = candidate.content.parts[0].text || '';
+      let content = candidate.content.parts[0].text || '';
 
       // Validate response is not empty
       if (!content || content.trim().length === 0) {
@@ -180,6 +246,21 @@ export class AIService {
           'Gemini returned empty response',
           'Unable to generate response. Please try again.'
         );
+      }
+
+      // 1. Strip Markdown Code Blocks (if any)
+      content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+
+      // 2. Clean technical mode prefix from JSON answer
+      try {
+        const json = JSON.parse(content);
+        if (json.answer) {
+          // Remove "Mode: XXX" prefix and surrounding whitespace
+          json.answer = json.answer.replace(/^\s*Mode:\s*(PSYCH|HEALTH|MIXED)\s*\n*/i, '');
+          content = JSON.stringify(json);
+        }
+      } catch {
+        // Not JSON, ignore
       }
 
       // Step 6: Build response with metadata
@@ -199,23 +280,153 @@ export class AIService {
 
       return response;
     } catch (error) {
-      // If already an AIError, re-throw
-      if (error instanceof Object && error !== null && 'type' in error && 'message' in error) {
-        throw error;
+      console.warn('[AI Service] Gemini call failed, falling back to rule-based engine:', error);
+      
+      // FALLBACK SYSTEM: If Gemini fails, use rule-based response
+      // This ensures user always gets a response instead of an error
+      return this.generateFallbackResponse(userId, request);
+    }
+  }
+
+  /**
+   * Generate rule-based fallback response when AI service is down
+   */
+  private generateFallbackResponse(userId: string, request: AIRequest): AIResponse {
+      const input = request.input;
+      let content = "";
+      
+      // Simple keyword matching for fallback
+      const question = (input.question || input.prompt || "").toLowerCase();
+      const isArabic = /[\u0600-\u06FF]/.test(question);
+      
+      if (request.task === AITask.HEALTH_QUESTION) {
+          if (isArabic) {
+              if (question.includes("ألم") || question.includes("وجع") || question.includes("تعبانة")) {
+                  content = "ألف سلامة عليكي. أنا مقدرة جداً الألم اللي بتمر بيه. أهم حاجة دلوقتي تحاولي ترتاحي وتاخدي نفس عميق. لو الألم ده مستمر أو شديد، أنصحك بزيارة الطبيب للاطمئنان. أنا موجودة هنا لو حابة تتكلمي أو توصفيه أكتر.";
+              } else if (question.includes("خايفة") || question.includes("قلقانة") || question.includes("عيالي")) {
+                  content = "مشاعرك دي طبيعية جداً ومفهومة، ومن حقك تقلقي عشان إنتي أم مسؤولة. اطمني، إحنا هنا جنبك خطوة بخطوة. خلي عندك أمل ويقين، وإن شاء الله الأمور هتتحسن. تحبي نتكلم في استراتيجيات بسيطة للتعامل مع القلق ده؟";
+              } else if (question.includes("توتر") || question.includes("متوترة") || question.includes("ضغط") || question.includes("مضغوطة") || question.includes("هلع")) {
+                  content = [
+                    "أنا فاهماكي… التوتر والضغط ممكن يكونوا مُرهقين جداً. جربي خطوات بسيطة وآمنة تساعدك دلوقتي:",
+                    "",
+                    "• تنفّس 4-6: شهيق 4 ثواني، زفير 6 ثواني، كرري 5 مرات.",
+                    "• اكتبي 3 حاجات مزعلاكي + خطوة صغيرة تقدري تعمليها النهارده.",
+                    "• قلّلي الكافيين آخر اليوم، وحاولي تمشي 10 دقائق لو تقدري.",
+                    "• نامي/ريّحي جسمك قدر الإمكان، واشربي مية.",
+                    "",
+                    "لو التوتر شديد أو بيأثر على نومك/أكلك أو معاها خفقان شديد/دوخة/أفكار إيذاء للنفس، الأفضل تتواصلي مع طبيبة أو مختص فوراً.",
+                    "",
+                    "تحبي تقوليلي أكتر: التوتر سببه إيه غالباً؟"
+                  ].join("\n");
+              } else if (
+                   question.includes("مصابه") ||
+                   question.includes("مصابة") ||
+                   question.includes("تشخيص") ||
+                   question.includes("تم تشخيص") ||
+                   question.includes("سرطان")
+               ) {
+                   content = [
+                     "**نظرة عامة**",
+                     "• التشخيص الجديد يحتاج هدوء وخطوات واضحة. وأنا هنا لأدعمك بشكل مهني ومطمئن.",
+                     "",
+                     "**أهم ما تنتبهي له الآن**",
+                     "• ترتيب موعد مع الطبيبة وكتابة أسئلتك مسبقاً.",
+                     "• متابعة الأعراض يومياً وتسجيلها (شدة، مدة، ما يحسن/يزيد).",
+                     "• الالتزام بالأدوية في مواعيدها مع مراعاة التعليمات.",
+                     "• الاهتمام بالنوم، غذاء متوازن، وماء كفاية.",
+                     "",
+                     "**أسئلة مفيدة للطبيبة**",
+                     "• ما نوع ومرحلة الحالة؟",
+                     "• ما خطة العلاج وخطواتها؟",
+                     "• الآثار الجانبية المتوقعة وكيف أتعامل معها؟",
+                     "• متى يجب أن أتواصل فوراً أو أذهب للطوارئ؟",
+                     "",
+                     "**متى تطلبين عناية عاجلة**",
+                     "• ألم صدر شديد، صعوبة تنفس، نزيف شديد، حرارة مرتفعة مستمرة.",
+                     "",
+                     "**الخطوة التالية**",
+                     "• أقدر أجهز لكِ قائمة أسئلة للطبيبة، وأضيف تذكيرات للأدوية والمتابعة. تحبي أبدأ؟",
+                   ].join("\n");
+              } else if (question.includes("فحص") || question.includes("كشف") || question.includes("ماموجرام") || question.includes("أشعة")) {
+                  content = [
+                    "**الفحص الدوري مهم جداً للاطمئنان على صحتك.**",
+                    "",
+                    "• **الفحص الذاتي:** يُنصح بعمله مرة كل شهر، من 3-5 أيام بعد انتهاء الدورة الشهرية (لما يكون الثدي أقل تحجراً). لو انقطعت الدورة، ثبتي يوم معين في الشهر.",
+                    "• **الفحص السريري (عند الطبيب):** يُنصح به مرة سنوياً أو حسب توجيهات طبيبك.",
+                    "• **الماموجرام:** عادة يُنصح به سنوياً بعد سن الأربعين، أو قبل ذلك لو فيه تاريخ مرضي في العائلة (حسب رأي الطبيب).",
+                    "",
+                    "هل تحبي أساعدك نعرف طريقة الفحص الذاتي الصحيحة؟"
+                  ].join("\n");
+              } else {
+                  content = "أهلاً بيكي. أنا سامعاكي كويس ومقدرة كل كلمة بتقوليها. كملي، أنا معاكي للآخر. إيه كمان شاغل بالك أو مضايقك؟ خدي راحتك في الكلام، أنا هنا عشان أسمعك.";
+              }
+          } else {
+              // English Fallback
+              if (question.includes("pain") || question.includes("hurt")) {
+                  content = "I'm so sorry you're in pain. Please take a deep breath and try to rest. If the pain is severe, please see a doctor. I'm here if you want to talk more.";
+              } else if (question.includes("scared") || question.includes("afraid") || question.includes("kids")) {
+                  content = "I understand your fear. You are a strong mother, and it's natural to worry. Have faith that you will get through this. I am here with you.";
+              } else if (question.includes("stress") || question.includes("stressed") || question.includes("pressure") || question.includes("panic") || question.includes("overwhelmed")) {
+                  content = [
+                    "I hear you—stress can be exhausting. A few safe steps you can try right now:",
+                    "",
+                    "• 4–6 breathing: inhale 4 seconds, exhale 6 seconds, repeat 5 times.",
+                    "• Write down 3 stressors + 1 small step you can do today.",
+                    "• Reduce caffeine later in the day and try a 10-minute walk if you can.",
+                    "• Rest and hydrate.",
+                    "",
+                    "If stress is severe or affects sleep/appetite, or you have strong palpitations/dizziness/self-harm thoughts, please contact a clinician urgently.",
+                    "",
+                    "What’s driving the stress most: symptoms, treatment, family, or work?"
+                  ].join("\n");
+              } else if (
+                   question.includes("newly diagnosed") ||
+                   question.includes("just diagnosed") ||
+                   question.includes("diagnosed")
+               ) {
+                   content = [
+                     "**Overview**",
+                     "• A new diagnosis is overwhelming. Let's take calm, clear steps together.",
+                     "",
+                     "**Pay Attention Now**",
+                     "• Schedule your doctor visit and write down your questions.",
+                     "• Track symptoms daily (severity, duration, triggers, relievers).",
+                     "• Take medications on time and follow instructions.",
+                     "• Prioritize sleep, balanced nutrition, and hydration.",
+                     "",
+                     "**Questions for Your Doctor**",
+                     "• What is the exact type and stage?",
+                     "• What is the treatment plan and timeline?",
+                     "• Expected side effects and how to manage them?",
+                     "• When should I call urgently or go to ER?",
+                     "",
+                     "**When to Seek Urgent Care**",
+                     "• Severe chest pain, difficulty breathing, heavy bleeding, persistent high fever.",
+                     "",
+                     "**Next Step**",
+                     "• I can prepare your doctor question list and set reminders. Would you like me to start now?",
+                   ].join("\n");
+              } else {
+                  content = "I'm here for you. I hear you and I support you. Would you like to tell me more?";
+              }
+          }
+      } else {
+          content = isArabic 
+            ? "أنا هنا عشان أساعدك. ممكن توضحيلي أكتر إزاي أقدر أكون جنبك النهاردة؟" 
+            : "I am here to help. Could you tell me more about how I can support you today?";
       }
 
-      // Convert unknown errors to AIError
-      throw this.createError(
-        AIErrorType.SYSTEM_ERROR,
-        `Chat error: ${error instanceof Error ? error.message : String(error)}`,
-        'Unable to process your request. Please try again.',
-        {
-          userId,
-          task: request.task,
-          error: error instanceof Error ? error.message : String(error),
-        }
-      );
-    }
+      return {
+        content,
+        task: request.task,
+        metadata: {
+          model: 'fallback-rule-engine',
+          timestamp: new Date().toISOString(),
+          tokensUsed: 0,
+          processingTime: 0,
+        },
+        safety: { filtered: false }
+      };
   }
 
   /**

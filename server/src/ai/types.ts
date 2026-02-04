@@ -62,6 +62,11 @@ export interface AIRequest {
     language?: 'en' | 'ar';
     age?: number;
     medicalHistory?: string[];
+    mode?: 'psych' | 'health' | 'mixed';
+    history?: Array<{
+      role: 'user' | 'model';
+      parts: Array<{ text: string }>;
+    }>;
   };
 }
 
@@ -248,7 +253,7 @@ export interface GeminiRequest {
       text: string;
     }>;
   }>;
-  systemInstruction: {
+  systemInstruction?: {
     parts: Array<{
       text: string;
     }>;
@@ -258,6 +263,7 @@ export interface GeminiRequest {
     temperature?: number;
     topP?: number;
     topK?: number;
+    responseMimeType?: string;
   };
   safetySettings?: Array<{
     category: string;

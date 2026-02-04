@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,9 @@ import {
   LogOut,
   History,
   Plus,
-  Trash2
+  Trash2,
+  Brain,
+  Stethoscope
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { getCurrentUser, logoutUser } from "@/lib/database";
@@ -50,6 +52,15 @@ interface Conversation {
 const AIHealthAssistant = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlMode = (searchParams.get('mode') as "normal" | "counselor") || "normal";
+  const [activeMode, setActiveMode] = useState<"health" | "psych">(urlMode === 'counselor' ? 'psych' : 'health');
+
+  // Sync activeMode when URL changes
+  useEffect(() => {
+    setActiveMode(urlMode === 'counselor' ? 'psych' : 'health');
+  }, [urlMode]);
+
   const { toast } = useToast();
   const [userName, setUserName] = useState<string>("");
   const [message, setMessage] = useState("");
@@ -57,7 +68,9 @@ const AIHealthAssistant = () => {
     {
       id: 1,
       role: "assistant",
-      content: "Hello! I'm your compassionate AI health companion. How can I support you today? 💗",
+      content: activeMode === 'psych' 
+        ? "Hello. I am your safe space and virtual counselor. I'm here to listen to whatever is on your mind with zero judgment. How are you feeling right now? 💗"
+        : "Hello! I'm your compassionate AI health companion. How can I support you today? 💗",
     },
   ]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -85,12 +98,13 @@ const AIHealthAssistant = () => {
       userType: user.userType as "fighter" | "survivor" | "wellness",
       currentDate: new Date().toLocaleDateString(),
       language: userLanguage,
+      mode: activeMode
     });
     localStorage.setItem('hopebloom_chatbot_prompt', systemPrompt);
 
     // Load conversations and current conversation pointer from localStorage
-    const listKey = `hb_chat_conversations_user_${user.id}`;
-    const currentKey = `hb_chat_current_conversation_user_${user.id}`;
+    const listKey = `hb_chat_conversations_user_${user.id}${activeMode === 'psych' ? '_counselor' : ''}`;
+    const currentKey = `hb_chat_current_conversation_user_${user.id}${activeMode === 'psych' ? '_counselor' : ''}`;
     const storedList = localStorage.getItem(listKey);
     const storedCurrentId = localStorage.getItem(currentKey);
 
@@ -98,10 +112,17 @@ const AIHealthAssistant = () => {
     let currentId: string | null = storedCurrentId || null;
 
     if (convs.length === 0) {
-      const greeting = RESPONSE_TEMPLATES.greeting(user.name, user.userType, userLanguage);
+      const greeting = activeMode === 'psych'
+        ? (userLanguage === "ar" 
+            ? "أهلاً بك. أنا مساحتك الآمنة ومستشارتك الافتراضية. أنا هنا للاستماع إليكِ دون أي حكم. كيف تشعرين الآن؟ 💗"
+            : "Hello. I am your safe space and virtual counselor. I'm here to listen with zero judgment. How are you feeling? 💗")
+        : RESPONSE_TEMPLATES.greeting(user.name, user.userType, userLanguage);
+        
       const initialConv: Conversation = {
         id: `conv_${Date.now()}`,
-        title: userLanguage === "ar" ? "محادثة جديدة" : "New Conversation",
+        title: userLanguage === "ar" 
+          ? (activeMode === 'psych' ? "جلسة استشارة" : "محادثة جديدة") 
+          : (activeMode === 'psych' ? "Counseling Session" : "New Conversation"),
         createdAt: Date.now(),
         updatedAt: Date.now(),
         messages: [
@@ -119,44 +140,141 @@ const AIHealthAssistant = () => {
 
     const currentConv = convs.find(c => c.id === currentId) || convs[0];
     setMessages(currentConv.messages);
-  }, [navigate, userType]);
+  }, [navigate, userType, activeMode]);
 
   const generateAIResponse = (userMessage: string): string => {
     const user = getCurrentUser();
     if (!user) return "";
     
-    // Detect language from user message or use user preference
+    // Detect language from user message (Priority 1)
     const detectedLang = detectLanguage(userMessage);
-    const responseLang = user.language || detectedLang;
+    // Use user preference as fallback (Priority 2)
+    const responseLang = detectedLang === "ar" ? "ar" : (user.language || "en");
     
     const lowerMessage = userMessage.toLowerCase();
     const lowerMessageAr = userMessage; // For Arabic keyword detection
     
     // Emergency keywords in both languages
-    const emergencyKeywordsEn = ['emergency', 'severe pain', "can't breathe", 'chest pain', 'severe bleeding'];
-    const emergencyKeywordsAr = ['طوارئ', 'ألم شديد', 'لا أستطيع التنفس', 'ألم في الصدر', 'نزيف شديد'];
+    const emergencyKeywordsEn = ['emergency', 'severe pain', "can't breathe", 'chest pain', 'severe bleeding', 'suicide', 'kill myself', 'end my life'];
+    const emergencyKeywordsAr = ['طوارئ', 'ألم شديد', 'لا أستطيع التنفس', 'ألم في الصدر', 'نزيف شديد', 'انتحار', 'انهي حياتي', 'اموت'];
     const isEmergency = emergencyKeywordsEn.some(k => lowerMessage.includes(k)) || 
                         emergencyKeywordsAr.some(k => lowerMessageAr.includes(k));
     
     if (isEmergency) {
       const emergencyMsg = responseLang === "ar"
-        ? "أنا قلق بشأن ما تصفينه. إذا كنت تعانين من أعراض شديدة مثل ألم في الصدر أو صعوبة في التنفس أو نزيف شديد، يرجى طلب العناية الطبية الفورية أو الاتصال بخدمات الطوارئ على الفور. سلامتك هي الأولوية القصوى. 💗"
-        : "I'm concerned about what you're describing. If you're experiencing severe symptoms like chest pain, difficulty breathing, or severe bleeding, please seek immediate medical attention or call emergency services right away. Your safety is the top priority. 💗";
+        ? "أنا قلقة بشأن ما تذكرينه. هذا يبدو أمراً جدياً ويستحق الاهتمام الطبي الفوري. إذا كنت تشعرين بأي خطر، أرجو منكِ التوجه لأقرب طوارئ أو التواصل مع طبيبك فوراً. سلامتك هي أولويتنا."
+        : "I'm deeply concerned about you. Please, your safety is the most important thing right now. If you're in danger, please call emergency services or go to the nearest hospital immediately.";
       return formatResponse(emergencyMsg, false, user.name, responseLang);
     }
-    
-    // Emotional support keywords
-    const emotionalKeywordsEn = ['scared', 'afraid', 'anxious', 'worried', 'depressed', 'sad', 'fear', 'anxiety'];
-    const emotionalKeywordsAr = ['خائفة', 'خوف', 'قلقة', 'قلق', 'مكتئبة', 'حزينة', 'خوف', 'قلق'];
+
+    // Newly Diagnosed guidance
+    const newDiagAr = ["مصابه", "مصابة", "تشخيص", "تم تشخيص", "سرطان", "مصابة جديد", "مصابه جديد"]; 
+    const newDiagEn = ["newly diagnosed", "just diagnosed", "recently diagnosed", "diagnosed"]; 
+    const isNewlyDiagnosed = newDiagAr.some(k => lowerMessageAr.includes(k)) || newDiagEn.some(k => lowerMessage.includes(k));
+    if (isNewlyDiagnosed) {
+      const text = responseLang === "ar"
+        ? [
+            "**نظرة عامة**",
+            "• التشخيص الجديد يحتاج هدوء وخطوات واضحة. أنا هنا لأدعمك مهنياً وبكل تعاطف.",
+            "",
+            "**أهم ما تنتبهي له الآن**",
+            "• ترتيب زيارة للطبيبة وكتابة أسئلتك.",
+            "• متابعة الأعراض يومياً وتسجيلها.",
+            "• الالتزام بالأدوية في مواعيدها.",
+            "• الاهتمام بالنوم، التغذية، والماء.",
+            "",
+            "**أسئلة للطبيبة**",
+            "• نوع ومرحلة الحالة؟",
+            "• خطة العلاج وخطواتها؟",
+            "• الآثار الجانبية وكيف أتعامل معها؟",
+            "• متى أتواصل فوراً أو أذهب للطوارئ؟",
+            "",
+            "**متى تطلبين عناية عاجلة**",
+            "• ألم صدر شديد، صعوبة تنفس، نزيف شديد، حرارة مرتفعة مستمرة.",
+            "",
+            "**الخطوة التالية**",
+            "• أقدر أجهز لكِ قائمة أسئلة للطبيبة وأضيف تذكيرات للأدوية والمتابعة. تحبي أبدأ؟",
+          ].join("\n")
+        : [
+            "**Overview**",
+            "• A new diagnosis is overwhelming. We'll take calm, clear steps together.",
+            "",
+            "**Pay Attention Now**",
+            "• Book your doctor visit and write your questions.",
+            "• Track symptoms daily.",
+            "• Take medications on time and follow instructions.",
+            "• Prioritize sleep, nutrition, and hydration.",
+            "",
+            "**Questions for Your Doctor**",
+            "• Exact type and stage?",
+            "• Treatment plan and timeline?",
+            "• Expected side effects and management?",
+            "• When to call urgently or go to ER?",
+            "",
+            "**When to Seek Urgent Care**",
+            "• Severe chest pain, difficulty breathing, heavy bleeding, persistent high fever.",
+            "",
+            "**Next Step**",
+            "• I can prepare a question list and set reminders. Shall I start?",
+          ].join("\n");
+      return formatResponse(text, true, user.name, responseLang);
+    }
+
+    const stressKeywordsEn = ['stress', 'stressed', 'pressure', 'panic', 'overwhelmed'];
+    const stressKeywordsAr = ['توتر', 'متوترة', 'ضغط', 'مضغوطة', 'مجهدة', 'مرهقة', 'بانك', 'هلع'];
+    const isStressQuestion = stressKeywordsEn.some(k => lowerMessage.includes(k)) ||
+                             stressKeywordsAr.some(k => lowerMessageAr.includes(k));
+    if (isStressQuestion) {
+      const msg = responseLang === "ar"
+        ? [
+            "أنا فاهماكي… التوتر والضغط ممكن يكونوا مُرهقين جداً. خلينا نجرّب خطوات بسيطة وآمنة تساعدك الآن:",
+            "",
+            "• تنفّس 4-6: خدي شهيق 4 ثواني، وطلّعي الزفير 6 ثواني، وكرري 5 مرات.",
+            "• اكتبي 3 أشياء مزعلاكي + 1 خطوة صغيرة تقدري تعمليها النهارده.",
+            "• قلّلي الكافيين آخر اليوم، وحاولي تمشي 10 دقائق لو تقدري.",
+            "• نامي/ريّحي جسمك قدر الإمكان، واشربي مية.",
+            "",
+            "ولو التوتر شديد أو بيأثر على نومك/أكلك أو معاها خفقان شديد/دوخة/أفكار إيذاء للنفس، الأفضل تتواصلي مع طبيبة أو مختص فوراً.",
+            "",
+            "تحبي تقوليلي التوتر سببه إيه غالباً: علاج/أعراض/قلق على العيلة/شغل؟"
+          ].join("\n")
+        : [
+            "I hear you—stress and pressure can be exhausting. Here are a few safe, simple steps you can try right now:",
+            "",
+            "• 4–6 breathing: inhale 4 seconds, exhale 6 seconds, repeat 5 times.",
+            "• Write down 3 stressors + 1 small step you can do today.",
+            "• Reduce caffeine later in the day and try a 10-minute walk if you can.",
+            "• Rest your body when possible and hydrate.",
+            "",
+            "If stress is severe or affects sleep/appetite, or you have strong palpitations/dizziness/self-harm thoughts, please contact a clinician urgently.",
+            "",
+            "Would you like to share what’s driving the stress most: treatment, symptoms, family, or work?"
+          ].join("\n");
+      return formatResponse(msg, false, user.name, responseLang);
+    }
+
+    // Emotional support keywords (Expanded)
+    const emotionalKeywordsEn = ['scared', 'afraid', 'anxious', 'worried', 'depressed', 'sad', 'fear', 'anxiety', 'lonely', 'pain', 'hurt', 'tired'];
+    const emotionalKeywordsAr = ['خائفة', 'خوف', 'قلقة', 'قلق', 'توتر', 'متوترة', 'ضغط', 'مضغوطة', 'مكتئبة', 'حزينة', 'وجع', 'ألم', 'تعبانة', 'محدش حاسس', 'وحيدة', 'عيالي', 'اطفالي'];
     const needsEmotionalSupport = emotionalKeywordsEn.some(k => lowerMessage.includes(k)) ||
                                   emotionalKeywordsAr.some(k => lowerMessageAr.includes(k));
     
     if (needsEmotionalSupport) {
+       // Customized response for "pain" and "kids" mentioned in user input
+       if (lowerMessageAr.includes('عيالي') || lowerMessageAr.includes('اطفالي')) {
+           const msg = responseLang === "ar"
+             ? "أنا مقدرة تماماً خوفك على أطفالك، وده شعور نابع من حبك الكبير ليهم. حالتك النفسية جزء مهم جداً من رحلة العلاج. خلينا نركز مع بعض إزاي نخفف القلق ده عشان تقدري تكوني في أحسن حال ليهم. إحنا هنا جنبك ومش هنسيبك."
+             : "I deeply appreciate your fear for your children, which comes from your great love for them. Your mental state is a very important part of the healing journey. Let's focus together on how to alleviate this anxiety so you can be at your best for them. We are here with you.";
+           return formatResponse(msg, false, user.name, responseLang);
+       }
+
       let response = RESPONSE_TEMPLATES.emotionalSupport(responseLang);
-      response = response.replace('[situation]', responseLang === "ar" ? 'هذا' : 'this')
-                         .replace('[emotion]', responseLang === "ar" ? 'بهذه الطريقة' : 'this way');
+      response = response.replace('[situation]', responseLang === "ar" ? 'اللي بتمر بيه ده' : 'this situation')
+                         .replace('[emotion]', responseLang === "ar" ? 'بالمشاعر دي' : 'this way');
       return formatResponse(response, false, user.name, responseLang);
     }
+    
+    // ... rest of logic
     
     // Symptom inquiries
     const symptomKeywordsEn = ['symptom', 'pain', 'lump', 'discharge', 'change', 'ache', 'tenderness'];
@@ -172,13 +290,38 @@ const AIHealthAssistant = () => {
     }
     
     // Treatment-related questions
-    const treatmentKeywordsEn = ['treatment', 'chemotherapy', 'radiation', 'surgery', 'therapy'];
-    const treatmentKeywordsAr = ['علاج', 'علاج كيميائي', 'إشعاع', 'جراحة', 'علاج'];
+    const treatmentKeywordsEn = ['treatment', 'chemotherapy', 'radiation', 'surgery', 'therapy', 'exam', 'checkup', 'screening', 'mammogram'];
+    const treatmentKeywordsAr = [
+      'علاج',
+      'علاج كيميائي',
+      'العلاج الكيميائي',
+      'العلاج الكيمائي',
+      'العلاج الكيماوي',
+      'كيميائي',
+      'كيمائي',
+      'كيماوي',
+      'إشعاع',
+      'الإشعاع',
+      'جراحة',
+      'فحص',
+      'كشف',
+      'أشعة',
+      'ماموجرام',
+      'سونار'
+    ];
     const isTreatmentQuestion = treatmentKeywordsEn.some(k => lowerMessage.includes(k)) ||
                                 treatmentKeywordsAr.some(k => lowerMessageAr.includes(k));
     
     if (isTreatmentQuestion) {
       return formatResponse(RESPONSE_TEMPLATES.treatmentSupport(responseLang), false, user.name, responseLang);
+    }
+    
+    // Fallback for Counselor Mode if no keywords matched (placed late to allow medical queries first)
+    if (activeMode === 'psych') {
+      const counselorMsg = responseLang === "ar"
+        ? "أنا سامعاكي ومقدرة جداً كل كلمة بتقوليها. خرجي كل اللي جواكي، أنا هنا عشانك. تحبي تحكيلي أكتر عن اللي مضايقك؟"
+        : "I hear you and I appreciate every word you say. Let it all out, I'm here for you. Would you like to tell me more about what's bothering you?";
+      return formatResponse(counselorMsg, false, user.name, responseLang);
     }
     
     // General supportive response
@@ -188,7 +331,7 @@ const AIHealthAssistant = () => {
       : `Thank you for sharing, ${user.name}. I understand your concern and I'm here to help. `;
     
     const questionKeywordsEn = ['question', 'what', 'how', 'why', 'when', 'where'];
-    const questionKeywordsAr = ['سؤال', 'ماذا', 'كيف', 'لماذا', 'متى', 'أين'];
+    const questionKeywordsAr = ['سؤال', 'ماذا', 'ما هو', 'كيف', 'ازاي', 'ليه', 'لماذا', 'متى', 'فين', 'أين'];
     const isQuestion = questionKeywordsEn.some(k => lowerMessage.includes(k)) ||
                        questionKeywordsAr.some(k => lowerMessageAr.includes(k));
     
@@ -231,18 +374,45 @@ const AIHealthAssistant = () => {
       userType: (user?.userType as "fighter" | "survivor" | "wellness") || "wellness",
       currentDate: new Date().toLocaleDateString(),
       language: responseLanguage,
+      mode: activeMode
     });
 
     try {
+      // Prepare history for multi-turn context
+      const history = messages.slice(-10).map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
       // محاولـة الرد عبر Gemini من الباكند
-      const result = await apiAI.chat({ prompt: currentMessage, system });
-      const aiResponseContent = (result as Record<string, unknown>)?.text || "";
+      const result = await apiAI.chat({ 
+        prompt: currentMessage, 
+        system, 
+        history,
+        mode: activeMode 
+      });
+      const resultObj = result as Record<string, unknown>;
+      const isFallback = resultObj?.fallback === true;
+      
+      const aiResponseContent = String(resultObj?.text || "");
+
       const aiResponse: ChatMessage = {
         id: Date.now() + 1,
         role: "assistant",
         content: aiResponseContent || generateAIResponse(currentMessage),
       };
       setMessages((prev) => [...prev, aiResponse]);
+
+      if (isFallback) {
+        toast({
+          title: user?.language === 'ar' ? "وضع عدم الاتصال" : "Offline Mode Active",
+          description: user?.language === 'ar' 
+            ? "خدمة الذكاء الاصطناعي السحابية غير متاحة حالياً، وسأستخدم الردود المحلية مؤقتاً. 💗"
+            : "Cloud AI is currently unavailable. Using local responses for now. 💗",
+          variant: "default",
+          className: "bg-blue-50 border-blue-200 text-blue-800"
+        });
+      }
     } catch (err: Error | unknown) {
       // في حال الفشل، نستخدم الرد المحلي ونظهر Toast
       const aiResponseContent = generateAIResponse(currentMessage);
@@ -252,10 +422,16 @@ const AIHealthAssistant = () => {
         content: aiResponseContent,
       };
       setMessages((prev) => [...prev, aiResponse]);
+      
+      // Only show toast if it's not a common network error to avoid spamming
+      console.warn("AI Service Error:", err);
       toast({
-        title: "AI service unavailable",
-        description: "Using local companion responses for now.",
-        variant: "destructive",
+        title: user?.language === 'ar' ? "وضع عدم الاتصال" : "Offline Mode Active",
+        description: user?.language === 'ar' 
+          ? "أواجه مشكلة في الاتصال بالإنترنت، لكنني ما زلت هنا لدعمك بمعلوماتي المخزنة. 💗"
+          : "I'm having trouble connecting to the cloud, but I'm still here to support you with my built-in knowledge. 💗",
+        variant: "default",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
       });
     } finally {
       setIsLoading(false);
@@ -293,8 +469,18 @@ const AIHealthAssistant = () => {
         system 
       });
       
-      const analysisText = (result as Record<string, unknown>)?.text || generateAIResponse(symptomText);
+      const resultObj = result as Record<string, unknown>;
+      const isFallback = resultObj?.fallback === true;
+      const analysisText = String(resultObj?.text || "") || generateAIResponse(symptomText);
       setSymptomResult(analysisText);
+
+      if (isFallback) {
+        toast({
+          title: "AI service unavailable",
+          description: "Using local analysis for now.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       const fallbackResponse = generateAIResponse(symptomText);
       setSymptomResult(fallbackResponse);
@@ -344,7 +530,9 @@ const AIHealthAssistant = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
               <Flower2 className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-foreground">AI Health Assistant</span>
+            <span className="text-xl font-bold text-foreground">
+              {activeMode === 'psych' ? "Virtual Counselor" : "AI Health Assistant"}
+            </span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -396,8 +584,34 @@ const AIHealthAssistant = () => {
               <div className="space-y-4 mb-4">
                 <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   <MessageCircle className="w-6 h-6 text-primary" />
-                  Virtual Support & Psychological Companion
+                  {activeMode === 'psych' ? "Psychological Counseling & Support" : "Virtual Support & Psychological Companion"}
                 </h2>
+
+                <div className="flex p-1 bg-muted rounded-lg mb-4 w-full sm:w-fit">
+                  <button
+                    onClick={() => setActiveMode('health')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      activeMode === 'health' 
+                        ? 'bg-white text-primary shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Stethoscope className="w-4 h-4" />
+                    {getCurrentUser()?.language === "ar" ? "مساعد صحي" : "Health Assistant"}
+                  </button>
+                  <button
+                    onClick={() => setActiveMode('psych')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      activeMode === 'psych' 
+                        ? 'bg-white text-primary shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Brain className="w-4 h-4" />
+                    {getCurrentUser()?.language === "ar" ? "طبيبة نفسية" : "Psych Counselor"}
+                  </button>
+                </div>
+
               <p className="text-muted-foreground">
                 I'm here to listen, support, and guide you through your journey. 
                 Share your feelings, ask questions, or just chat. Remember, I provide 
@@ -550,34 +764,74 @@ const AIHealthAssistant = () => {
                   // Format message content for display
                   const formatMessageContent = (text: string) => {
                     return text.split('\n').map((line, lineIdx) => {
-                      // Check if line has bold text
-                      const boldRegex = /\*\*(.*?)\*\*/g;
-                      const parts: (string | JSX.Element)[] = [];
-                      let lastIndex = 0;
-                      let match;
-                      let key = 0;
+                      let processedLine = line.trim();
                       
-                      while ((match = boldRegex.exec(line)) !== null) {
-                        // Add text before bold
-                        if (match.index > lastIndex) {
-                          parts.push(line.substring(lastIndex, match.index));
-                        }
-                        // Add bold text
-                        parts.push(
-                          <strong key={`bold-${key++}`} className="font-semibold">
-                            {match[1]}
-                          </strong>
+                      // Handle Headers (e.g. ### Title)
+                      const headerMatch = processedLine.match(/^(#{1,6})\s+(.*)/);
+                      if (headerMatch) {
+                        return (
+                          <div key={lineIdx} className="font-bold text-lg mt-4 mb-2 text-primary">
+                            {headerMatch[2]}
+                          </div>
                         );
-                        lastIndex = match.index + match[0].length;
                       }
-                      // Add remaining text
-                      if (lastIndex < line.length) {
-                        parts.push(line.substring(lastIndex));
+
+                      // Handle Bullet Points
+                      const isBullet = processedLine.startsWith('* ') || processedLine.startsWith('- ') || processedLine.startsWith('• ');
+                      if (isBullet) {
+                        processedLine = processedLine.replace(/^[\*\-\•]\s*/, '').trim();
                       }
-                      
+
+                      // Handle Numbered Lists
+                      const numberMatch = processedLine.match(/^(\d+)\.\s+(.*)/);
+                      let isNumber = false;
+                      let numberLabel = '';
+                      if (numberMatch) {
+                        isNumber = true;
+                        numberLabel = numberMatch[1] + '.';
+                        processedLine = numberMatch[2];
+                      }
+
+                      // Process Inline Formatting (Bold & Italic)
+                      const processInline = (str: string): (string | JSX.Element)[] => {
+                        const parts: (string | JSX.Element)[] = [];
+                        // Split by Bold (**...**)
+                        const boldParts = str.split(/(\*\*.*?\*\*)/g);
+                        
+                        boldParts.forEach((part, i) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                             parts.push(<strong key={`b-${i}`} className="font-bold">{part.slice(2, -2)}</strong>);
+                          } else {
+                             // Process Italics (_..._) inside non-bold parts
+                             const italicParts = part.split(/(_.*?_)/g);
+                             italicParts.forEach((subPart, j) => {
+                               if (subPart.startsWith('_') && subPart.endsWith('_')) {
+                                 parts.push(<em key={`i-${i}-${j}`} className="italic text-primary/90">{subPart.slice(1, -1)}</em>);
+                               } else {
+                                 if (subPart) parts.push(subPart);
+                               }
+                             });
+                          }
+                        });
+                        return parts;
+                      };
+
                       return (
-                        <div key={lineIdx} className={line.trim().startsWith('•') ? "ml-4" : ""}>
-                          {parts.length > 0 ? parts : line}
+                        <div 
+                          key={lineIdx} 
+                          className={`
+                            ${isBullet || isNumber ? 'flex items-start gap-2 ms-4 mb-1' : 'min-h-[1.5rem] mb-1'} 
+                          `}
+                        >
+                          {isBullet && (
+                            <span className="text-primary font-bold mt-2 text-[8px] shrink-0">●</span>
+                          )}
+                          {isNumber && (
+                            <span className="text-primary font-bold shrink-0 min-w-[1.2rem]">{numberLabel}</span>
+                          )}
+                          <div className="flex-1 leading-relaxed">
+                            {processInline(processedLine)}
+                          </div>
                         </div>
                       );
                     });
@@ -766,4 +1020,3 @@ const AIHealthAssistant = () => {
 };
 
 export default AIHealthAssistant;
-

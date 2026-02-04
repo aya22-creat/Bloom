@@ -164,7 +164,12 @@ const ExerciseGuide = () => {
                         <Play className="w-4 h-4 mr-2" />
                         Watch Video
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => navigate(`/exercise-coach/${userType}?exercise=${encodeURIComponent(exercise.name)}`)}
+                      >
                         Start Exercise
                       </Button>
                     </div>

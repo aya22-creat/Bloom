@@ -4,6 +4,7 @@ export interface Reminder {
   title: string;
   description?: string;
   type: 'checkup' | 'appointment' | 'water' | 'exercise';
+  reminder_time?: string;
   time?: string;     // 'HH:MM'
   date?: string;     // 'YYYY-MM-DD'
   days?: string[];   // ['monday','wednesday']

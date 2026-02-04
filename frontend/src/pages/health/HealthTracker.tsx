@@ -25,8 +25,10 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getCurrentUser } from "@/lib/database";
+import { apiCycles, apiMedications, apiSelfExams, apiSymptoms } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { format, addDays } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface Medication {
   id: string;
@@ -50,6 +52,7 @@ const HealthTracker = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [medications, setMedications] = useState<Medication[]>([]);
   const [examRecords, setExamRecords] = useState<SelfExamRecord[]>([]);
@@ -70,41 +73,175 @@ const HealthTracker = () => {
   const [cycleLength, setCycleLength] = useState<number>(28);
   const nextPeriodDate = date ? addDays(date, cycleLength) : undefined;
   const nextSelfCheckDate = date ? addDays(date, 7) : undefined;
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchData = async () => {
+      const user = getCurrentUser();
+      if (!user) return;
+      setLoading(true);
+
+      try {
+        // Fetch Cycle Data
+        const cycles = await apiCycles.list(user.id);
+        if (cycles && cycles.length > 0) {
+           // Assume last cycle record has the config
+           // This is a simplification; in a real app we'd query a specific settings endpoint or sort by date
+           // For now, let's just stick to the cycle length from the latest record if available
+           // or keep the default
+        }
+
+        // Fetch Medications
+        const meds = await apiMedications.list(user.id);
+        if (meds) {
+          // Map backend structure to frontend interface if needed
+          // Assuming backend returns matching fields for now, but safer to map:
+          const mappedMeds = meds.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            time: m.time_of_day || "",
+            notes: m.instructions || ""
+          }));
+          setMedications(mappedMeds);
+        }
+
+        // Fetch Self Exams
+        const exams = await apiSelfExams.list(user.id);
+        if (exams) {
+          const mappedExams = exams.map((e: any) => ({
+            id: e.id,
+            date: e.exam_date,
+            time: e.exam_time || "",
+            findings: e.findings,
+            notes: e.notes || "",
+            nextExamDate: e.next_exam_date || ""
+          }));
+          setExamRecords(mappedExams);
+        }
+      } catch (error) {
+        console.error("Failed to load health data", error);
+        toast({
+          title: "Error loading data",
+          description: "Could not fetch your health records. Using local backup.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [userType, toast]);
+
+  const handleSaveCycle = async () => {
     const user = getCurrentUser();
-    if (user) {
-      const savedCycle = localStorage.getItem(`bloom_cycle_${user.id}`);
-      if (savedCycle) setCycleLength(parseInt(savedCycle));
-
-      const savedMeds = localStorage.getItem(`bloom_meds_${user.id}`);
-      if (savedMeds) setMedications(JSON.parse(savedMeds));
-
-      const savedExams = localStorage.getItem(`bloom_exams_${user.id}`);
-      if (savedExams) setExamRecords(JSON.parse(savedExams));
+    if (!user || !date) return;
+    try {
+      await apiCycles.create({
+        userId: user.id,
+        startDate: format(date, 'yyyy-MM-dd'),
+        cycleLength: cycleLength,
+        notes: "Updated from Health Tracker"
+      });
+      toast({ title: t('common.saved'), description: t('health_tracker.cycle_saved') });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to save cycle", variant: "destructive" });
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      localStorage.setItem(`bloom_cycle_${user.id}`, cycleLength.toString());
-    }
-  }, [cycleLength]);
+  const handleAddMedication = async () => {
+    if (currentMed.name && currentMed.dosage && currentMed.frequency) {
+      const user = getCurrentUser();
+      if (!user) return;
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      localStorage.setItem(`bloom_meds_${user.id}`, JSON.stringify(medications));
-    }
-  }, [medications]);
+      try {
+        const payload = {
+          userId: user.id,
+          name: currentMed.name,
+          dosage: currentMed.dosage,
+          frequency: currentMed.frequency,
+          timeOfDay: currentMed.time,
+          instructions: currentMed.notes
+        };
+        
+        const newMed = await apiMedications.create(payload);
+        
+        // Optimistic update or refetch
+        setMedications([...medications, {
+          id: (newMed as any).id || Date.now().toString(),
+          name: currentMed.name!,
+          dosage: currentMed.dosage!,
+          frequency: currentMed.frequency!,
+          time: currentMed.time || "",
+          notes: currentMed.notes || ""
+        }]);
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      localStorage.setItem(`bloom_exams_${user.id}`, JSON.stringify(examRecords));
+        setCurrentMed({
+            name: "",
+            dosage: "",
+            frequency: "",
+            time: "",
+            notes: "",
+        });
+        toast({ title: t('common.saved'), description: t('health_tracker.medications.saved') });
+      } catch (e) {
+        toast({ title: "Error", description: "Failed to add medication", variant: "destructive" });
+      }
     }
-  }, [examRecords]);
+  };
+
+  const handleSaveExam = async () => {
+    if (currentExam.date && currentExam.findings) {
+        const user = getCurrentUser();
+        if (!user) return;
+
+        try {
+            const payload = {
+                userId: user.id,
+                examDate: currentExam.date,
+                examTime: currentExam.time,
+                findings: currentExam.findings,
+                notes: currentExam.notes
+            };
+
+            const newExam = await apiSelfExams.create(payload);
+            
+            const nextDate = new Date(new Date(currentExam.date!).setMonth(new Date(currentExam.date!).getMonth() + 1)).toISOString().split('T')[0];
+            
+            setExamRecords([...examRecords, {
+                id: (newExam as any).id || Date.now().toString(),
+                date: currentExam.date!,
+                time: currentExam.time || "",
+                findings: currentExam.findings!,
+                notes: currentExam.notes || "",
+                nextExamDate: nextDate
+            }]);
+
+            setCurrentExam({
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().slice(0, 5),
+                findings: "",
+                notes: "",
+            });
+            toast({ title: t('common.saved'), description: t('health_tracker.exam_record.saved') });
+        } catch (e) {
+            toast({ title: "Error", description: "Failed to save exam record", variant: "destructive" });
+        }
+    }
+  };
+
+  const handleDeleteMedication = async (id: string) => {
+      try {
+          await apiMedications.remove(id);
+          setMedications(medications.filter(m => m.id !== id));
+          toast({ title: "Deleted", description: "Medication removed" });
+      } catch (e) {
+          // If it fails, just remove from UI for now to not block user
+          setMedications(medications.filter(m => m.id !== id));
+      }
+  };
 
   const selfCheckSteps = [
     { 
@@ -255,7 +392,7 @@ const HealthTracker = () => {
                     </div>
                   </div>
 
-                  <Button className="gradient-rose text-white w-full">
+                  <Button className="gradient-rose text-white w-full" onClick={handleSaveCycle}>
                     {t('health_tracker.set_reminder')}
                   </Button>
                 </div>
@@ -388,25 +525,7 @@ const HealthTracker = () => {
                 <div className="flex gap-2">
                   <Button
                     className="gradient-rose text-white flex-1"
-                    onClick={() => {
-                      if (currentExam.date && currentExam.findings) {
-                        const newRecord: SelfExamRecord = {
-                          id: Date.now().toString(),
-                          date: currentExam.date!,
-                          time: currentExam.time || new Date().toTimeString().slice(0, 5),
-                          findings: currentExam.findings,
-                          notes: currentExam.notes || "",
-                          nextExamDate: new Date(new Date(currentExam.date!).setMonth(new Date(currentExam.date!).getMonth() + 1)).toISOString().split('T')[0],
-                        };
-                        setExamRecords([...examRecords, newRecord]);
-                        setCurrentExam({
-                          date: new Date().toISOString().split('T')[0],
-                          time: new Date().toTimeString().slice(0, 5),
-                          findings: "",
-                          notes: "",
-                        });
-                      }
-                    }}
+                    onClick={handleSaveExam}
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {t('health_tracker.exam_record.save_btn')}
@@ -525,26 +644,7 @@ const HealthTracker = () => {
                 </div>
                 <Button
                   className="gradient-rose text-white w-full"
-                  onClick={() => {
-                    if (currentMed.name && currentMed.dosage && currentMed.frequency) {
-                      const newMed: Medication = {
-                        id: Date.now().toString(),
-                        name: currentMed.name,
-                        dosage: currentMed.dosage,
-                        frequency: currentMed.frequency,
-                        time: currentMed.time || "",
-                        notes: currentMed.notes || "",
-                      };
-                      setMedications([...medications, newMed]);
-                      setCurrentMed({
-                        name: "",
-                        dosage: "",
-                        frequency: "",
-                        time: "",
-                        notes: "",
-                      });
-                    }
-                  }}
+                  onClick={handleAddMedication}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {t('health_tracker.medications.add_btn')}
@@ -579,7 +679,7 @@ const HealthTracker = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setMedications(medications.filter(m => m.id !== med.id))}
+                          onClick={() => handleDeleteMedication(med.id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

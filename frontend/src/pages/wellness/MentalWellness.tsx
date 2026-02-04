@@ -20,10 +20,12 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useToast } from "@/hooks/use-toast";
 
 const MentalWellness = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [journalEntry, setJournalEntry] = useState("");
   const { t } = useTranslation();
 
@@ -160,7 +162,12 @@ const MentalWellness = () => {
                   <Button 
                     className="gradient-rose text-white flex-1"
                     onClick={() => {
+                      if (!journalEntry.trim()) return;
                       // Save journal entry
+                      toast({
+                        title: "Entry Saved",
+                        description: "Your journal entry has been saved successfully.",
+                      });
                       setJournalEntry("");
                     }}
                   >
@@ -289,7 +296,13 @@ const MentalWellness = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     {t('mental.counselor_support_desc')}
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      navigate(`/ai-assistant/${userType}?mode=counselor`);
+                    }}
+                  >
                     {t('mental.find_counselor')}
                   </Button>
                 </Card>
@@ -302,7 +315,13 @@ const MentalWellness = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     {t('mental.community_forum_desc')}
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      navigate(`/community-forum/${userType}`);
+                    }}
+                  >
                     {t('mental.join_community')}
                   </Button>
                 </Card>

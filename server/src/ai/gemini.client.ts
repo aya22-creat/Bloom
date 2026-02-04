@@ -27,6 +27,7 @@ export class GeminiClient {
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
   private timeout: number;
   private maxRetries: number;
+  private disabledError: AIError | null = null;
 
   constructor(config: { apiKey: string; model: string; timeout?: number; maxRetries?: number }) {
     if (!config.apiKey) {
@@ -38,9 +39,112 @@ export class GeminiClient {
     }
 
     this.apiKey = config.apiKey;
-    this.model = config.model;
-    this.timeout = config.timeout || 30000; // 30s default
-    this.maxRetries = config.maxRetries || 3;
+    this.model = GeminiClient.normalizeModelName(config.model);
+    this.timeout = config.timeout || 5000; // 5s default for faster failover
+    this.maxRetries = config.maxRetries || 1; // Reduce retries to fail fast
+  }
+
+  private static normalizeModelName(model: string): string {
+    const trimmed = (model || '').trim();
+    return trimmed.startsWith('models/') ? trimmed.slice('models/'.length) : trimmed;
+  }
+
+  getStatusSummary(): {
+    model: string;
+    disabled: boolean;
+    disabledType?: AIErrorType;
+    disabledStatusCode?: number;
+  } {
+    return {
+      model: this.model,
+      disabled: Boolean(this.disabledError),
+      disabledType: this.disabledError?.type,
+      disabledStatusCode: this.disabledError?.statusCode,
+    };
+  }
+
+  async ensureModelAvailable(): Promise<void> {
+    const models = await this.listModels();
+    const normalized = this.model;
+    const fullName = `models/${normalized}`;
+
+    if (models.includes(fullName)) {
+      return;
+    }
+
+    const preferred = [
+      'models/gemini-2.5-flash',
+      'models/gemini-2.0-flash-lite',
+      'models/gemini-2.0-flash-lite-001',
+      'models/gemini-1.5-flash',
+      'models/gemini-1.5-flash-latest',
+      'models/gemini-1.5-flash-001',
+      'models/gemini-2.5-flash',
+      'models/gemini-2.0-flash',
+      'models/gemini-2.5-pro',
+    ];
+
+    const nextModel = preferred.find((m) => models.includes(m)) || models.find((m) => (m || '').startsWith('models/gemini-')) || models[0];
+    if (!nextModel) {
+      throw this.createError(
+        AIErrorType.GEMINI_API_ERROR,
+        'No Gemini models available for this API key',
+        'AI service is currently unavailable. Please try again later.',
+        { availableModelsCount: models.length },
+        false
+      );
+    }
+
+    this.model = GeminiClient.normalizeModelName(nextModel);
+  }
+
+  private async listModels(): Promise<string[]> {
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(this.apiKey)}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal as any,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const status = response.status;
+        let data: any = {};
+        try {
+          data = await response.json();
+        } catch {}
+        const errorMessage = data?.error?.message || response.statusText;
+        throw this.createError(
+          AIErrorType.GEMINI_API_ERROR,
+          `Gemini ListModels error ${status}: ${errorMessage}`,
+          'AI service is currently unavailable. Please try again later.',
+          { status, details: data },
+          false
+        );
+      }
+
+      const data = (await response.json()) as any;
+      const models = Array.isArray(data?.models) ? data.models : [];
+      return models.map((m: any) => String(m?.name || '')).filter(Boolean);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error?.name === 'AbortError') {
+        throw this.createError(
+          AIErrorType.GEMINI_TIMEOUT,
+          `Gemini ListModels timeout after ${this.timeout}ms`,
+          'Request timed out. Please try again.',
+          undefined,
+          true
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -51,6 +155,10 @@ export class GeminiClient {
    * @throws AIError if request fails
    */
   async generate(request: GeminiRequest): Promise<GeminiResponse> {
+    if (this.disabledError) {
+      throw this.disabledError;
+    }
+
     let lastError: AIError | null = null;
 
     // Retry logic for transient failures
@@ -85,6 +193,7 @@ export class GeminiClient {
 
         // Don't retry if not retryable
         if (!lastError.retryable) {
+          this.disabledError = lastError;
           throw lastError;
         }
 
@@ -161,8 +270,18 @@ export class GeminiClient {
       );
     }
 
+    if (status === 403) {
+      throw this.createError(
+        AIErrorType.GEMINI_INVALID_KEY,
+        `API key forbidden: ${errorMessage}`,
+        'Authentication failed. Please contact support.',
+        { status, details: data },
+        false
+      );
+    }
+
     if (status === 429) {
-      const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
+      const retryAfter = parseInt(response.headers.get('retry-after') || '5', 10);
       throw this.createError(
         AIErrorType.GEMINI_RATE_LIMIT,
         `Rate limited: ${errorMessage}`,
@@ -180,6 +299,16 @@ export class GeminiClient {
         'AI service temporarily unavailable. Please try again.',
         { status, details: data },
         true // Retryable
+      );
+    }
+
+    if (status === 404) {
+      throw this.createError(
+        AIErrorType.GEMINI_API_ERROR,
+        `Gemini API error ${status}: ${errorMessage}`,
+        'AI model is unavailable. Please try again later.',
+        { status, details: data },
+        false
       );
     }
 
@@ -284,14 +413,16 @@ export class GeminiClient {
             parts: [{ text: 'say ok' }],
           },
         ],
-        systemInstruction: {
-          parts: [{ text: 'Respond with exactly one word: ok' }],
-        },
+        // Removed systemInstruction to ensure compatibility with all models/tiers
+        // systemInstruction: {
+        //   parts: [{ text: 'Respond with exactly one word: ok' }],
+        // },
       };
 
-      await this.makeRequest(testRequest);
+      await this.generate(testRequest);
       return true;
-    } catch {
+    } catch (e) {
+      console.error("[HealthCheck Error]", e);
       return false;
     }
   }
@@ -310,7 +441,7 @@ export class GeminiClient {
  */
 export function initializeGeminiClient(): GeminiClient {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY environment variable is not set');

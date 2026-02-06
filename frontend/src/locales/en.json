@@ -274,7 +274,31 @@
         "high_fat": "High in fat",
         "irregular": "Irregular"
       },
-      "learn_self_exam": "Would you like to learn the steps of self-examination?"
+      "learn_self_exam": "Would you like to learn the steps of self-examination?",
+      "nutrition_plan": "🍎 Nutrition Plan",
+      "water_intake": "💧 Water Intake",
+      "calories": "🔥 Calories",
+      "remaining": "Remaining",
+      "target": "Target",
+      "goal_reached": "Daily goal reached!",
+      "cups": "cups",
+      "breakfast": "🌅 Breakfast",
+      "lunch": "☀️ Lunch",
+      "dinner": "🌙 Dinner",
+      "snacks": "🍪 Snacks",
+      "select_meal": "Select a Meal",
+      "add": "Add Meal",
+      "meal_added": "Meal Added",
+      "hydration_tips": "💧 Hydration Tips",
+      "nutrition_tips": "🥗 Nutrition Tips",
+      "tip_water_morning": "Drink water first thing in the morning",
+      "tip_water_meals": "Drink water with every meal",
+      "tip_water_exercise": "Increase intake during exercise",
+      "tip_water_evening": "Limit water intake 2 hours before bed",
+      "tip_balance": "Balance proteins, carbs, and healthy fats",
+      "tip_colorful": "Eat colorful vegetables daily",
+      "tip_portions": "Practice portion control",
+      "tip_frequent": "Eat smaller meals more frequently"
     }
   },
   "educational": {

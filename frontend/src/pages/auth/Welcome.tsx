@@ -9,6 +9,10 @@ const Welcome = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  const goToLogin = () => {
+    window.location.href = "/#/login";
+  };
+
   return (
     <div className="min-h-screen gradient-blush flex items-center justify-center p-4 overflow-hidden relative">
       {/* Language and Theme Switchers */}
@@ -81,7 +85,7 @@ const Welcome = () => {
           <Button
             size="lg"
             variant="outline"
-            onClick={() => navigate("/login")}
+            onClick={goToLogin}
             className="px-12 py-6 text-lg rounded-full shadow-soft hover:shadow-glow transition-smooth"
           >
             {t('welcome.buttons.sign_in')}

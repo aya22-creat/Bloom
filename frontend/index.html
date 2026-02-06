@@ -19,6 +19,16 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var hasHashRoute = window.location.hash && window.location.hash.startsWith('#/');
+        var isDirectRoute = window.location.pathname !== '/' && !hasHashRoute;
+        if (isDirectRoute) {
+          var newHash = '#'+ window.location.pathname + window.location.search + window.location.hash;
+          window.location.replace('/' + newHash);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

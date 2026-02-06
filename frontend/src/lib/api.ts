@@ -1,4 +1,14 @@
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const DEFAULT_API_BASE = '/api';
+const ENV_API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL;
+const API_BASE =
+  ENV_API_BASE ||
+  (window.location.protocol === 'file:' ? 'http://localhost:4000/api' : 'http://localhost:4000/api');
+const LOGIN_HASH_PATH = '#/login?expired=true';
+
+const redirectToLogin = () => {
+  const isHashRouting = window.location.hash.startsWith('#/') || window.location.protocol === 'file:';
+  window.location.href = isHashRouting ? LOGIN_HASH_PATH : '/login?expired=true';
+};
 
 // Check if JWT token is expired
 const isTokenExpired = (token: string): boolean => {
@@ -27,7 +37,7 @@ const getAuthToken = (): string | null => {
         localStorage.removeItem('hopebloom_auth');
         // Redirect to login
         if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-          window.location.href = '/login?expired=true';
+          redirectToLogin();
         }
         return null;
       }
@@ -58,7 +68,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     console.warn('Unauthorized request - clearing auth data');
     localStorage.removeItem('hopebloom_auth');
     if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-      window.location.href = '/login?expired=true';
+      redirectToLogin();
     }
     throw new Error('Session expired. Please login again.');
   }

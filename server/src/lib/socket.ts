@@ -39,9 +39,47 @@ export const initializeSocketIO = (httpServer: HttpServer) => {
     console.log(`🔌 Client connected: ${socket.id}`);
 
     // Join Room (based on user type: fighter, survivor, wellness)
-    socket.on('join_room', (room: string) => {
+    socket.on('join_room', (data: { room: string; userName: string } | string) => {
+      // Handle both old and new format for backwards compatibility
+      const room = typeof data === 'string' ? data : data.room;
+      const userName = typeof data === 'object' ? data.userName : 'Anonymous';
+      
       socket.join(room);
-      console.log(`👤 User ${socket.id} joined room: ${room}`);
+      console.log(`👤 User ${socket.id} (${userName}) joined room: ${room}`);
+      
+      // Load and send previous messages from database
+      try {
+        const selectQuery = `SELECT sender, content as message, created_at as timestamp FROM chat_messages WHERE room = ? ORDER BY created_at DESC LIMIT 50`;
+        Database.db.all(selectQuery, [room], (err, rows: any[]) => {
+          if (err) {
+            console.error('❌ Failed to load previous messages:', err);
+            socket.emit('previous_messages', { messages: [] });
+          } else {
+            // Decrypt messages and reverse to show oldest first
+            const messages = (rows || [])
+              .map((msg: any) => {
+                try {
+                  return {
+                    sender: msg.sender,
+                    message: msg.message, // Would be encrypted in production - decrypt here
+                    timestamp: msg.timestamp
+                  };
+                } catch (e) {
+                  console.error('Failed to decrypt message:', e);
+                  return null;
+                }
+              })
+              .filter(Boolean)
+              .reverse();
+            
+            socket.emit('previous_messages', { messages });
+          }
+        });
+      } catch (err) {
+        console.error('Error loading messages:', err);
+        socket.emit('previous_messages', { messages: [] });
+      }
+      
       // Notify others in the room
       socket.to(room).emit('notification', { 
         type: 'user_joined', 

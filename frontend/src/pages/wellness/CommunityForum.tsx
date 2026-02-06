@@ -54,12 +54,22 @@ const CommunityForum = () => {
     newSocket.on("connect", () => {
       console.log("Connected to socket server");
       setIsConnected(true);
-      newSocket.emit("join_room", roomName);
+      newSocket.emit("join_room", { room: roomName, userName });
       
       toast({
         title: t('community.connected'),
         description: t('community.joined_room', { room: t(`auth.${userType === 'wellness' ? 'health_conscious_woman' : userType === 'fighter' ? 'breast_cancer_fighter' : 'survivor'}`) }),
       });
+    });
+
+    newSocket.on("previous_messages", (data: { messages: Array<{ sender: string; message: string; timestamp: string }> }) => {
+      console.log("Loaded previous messages:", data.messages.length);
+      setMessages(data.messages.map(msg => ({
+        sender: msg.sender,
+        message: msg.message,
+        timestamp: msg.timestamp,
+        isMe: msg.sender === userName
+      })));
     });
 
     newSocket.on("receive_message", (data: { sender: string; message: string; timestamp: string }) => {

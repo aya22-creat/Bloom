@@ -5,23 +5,39 @@ const router = Router();
 
 // Ensure table exists (Lazy Init for Pain Trends)
 setTimeout(() => {
-  const createTableQuery = `
-    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='health_logs' AND xtype='U')
-    CREATE TABLE health_logs (
-      id INT IDENTITY(1,1) PRIMARY KEY,
-      user_id INT,
-      type NVARCHAR(50), -- 'pain', 'mood', 'fatigue'
-      value INT, -- 1-10
-      notes NVARCHAR(MAX),
-      created_at DATETIME DEFAULT GETDATE(),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `;
-  try { 
+  const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+  const createTableQuery = isProduction
+    ? `
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='health_logs' AND xtype='U')
+      CREATE TABLE health_logs (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        user_id INT,
+        type NVARCHAR(50), -- 'pain', 'mood', 'fatigue'
+        value INT, -- 1-10
+        notes NVARCHAR(MAX),
+        created_at DATETIME DEFAULT GETDATE(),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `
+    : `
+      CREATE TABLE IF NOT EXISTS health_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        type TEXT,
+        value INTEGER,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `;
+
+  try {
     Database.db.run(createTableQuery, [], (err) => {
       if (!err) console.log('✅ Health Trends: Pain analysis database ready');
-    }); 
-  } catch (e) { console.error('Health Logs DB Init Error', e); }
+    });
+  } catch (e) {
+    console.error('Health Logs DB Init Error', e);
+  }
 }, 6000);
 
 // POST: Add Log (Pain, Mood, etc.)
@@ -54,11 +70,16 @@ router.get('/trends', async (req: Request, res: Response) => {
     const userId = (req as any).userId || 1;
     const { type } = req.query;
 
+    const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+    const dateExpr = isProduction
+      ? "FORMAT(created_at, 'yyyy-MM-dd')"
+      : "strftime('%Y-%m-%d', created_at)";
+
     const query = `
-      SELECT FORMAT(created_at, 'yyyy-MM-dd') as date, AVG(value) as value 
+      SELECT ${dateExpr} as date, AVG(value) as value 
       FROM health_logs 
       WHERE user_id = ? AND type = ? 
-      GROUP BY FORMAT(created_at, 'yyyy-MM-dd')
+      GROUP BY ${dateExpr}
       ORDER BY date ASC
     `;
     

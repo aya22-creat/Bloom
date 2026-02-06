@@ -19,10 +19,10 @@ router.get('/doctor/:userId', async (req, res) => {
     const [user, profile, symptoms, medications, selfExams, healthLogs] = await Promise.all([
       query('SELECT username, email FROM users WHERE id = ?', [userId]),
       query('SELECT * FROM user_profiles WHERE user_id = ?', [userId]),
-      query('SELECT * FROM symptoms WHERE user_id = ? ORDER BY date DESC', [userId]),
+      query('SELECT * FROM symptoms WHERE user_id = ? ORDER BY logged_at DESC', [userId]),
       query('SELECT * FROM medications WHERE user_id = ?', [userId]),
-      query('SELECT * FROM self_exams WHERE user_id = ? ORDER BY date DESC', [userId]),
-      query('SELECT * FROM health_logs WHERE user_id = ? ORDER BY date DESC', [userId])
+      query('SELECT * FROM self_exams WHERE user_id = ? ORDER BY exam_date DESC', [userId]),
+      query('SELECT * FROM health_logs WHERE user_id = ? ORDER BY created_at DESC', [userId])
     ]);
 
     res.json({

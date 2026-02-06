@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import Welcome from "./pages/auth/Welcome";
 import Onboarding from "./pages/auth/Onboarding";
 import Register from "./pages/auth/Register";
@@ -31,14 +31,9 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
-      onError: (error) => {
-        console.error('Query error:', error);
-      },
     },
     mutations: {
-      onError: (error) => {
-        console.error('Mutation error:', error);
-      },
+      retry: 1,
     },
   },
 });
@@ -61,12 +56,15 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Welcome />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login/*" element={<Login />} />
+          <Route path="/signin" element={<Navigate to="/login" replace />} />
+          <Route path="/sign-in" element={<Navigate to="/login" replace />} />
+          <Route path="/404" element={<Navigate to="/login" replace />} />
           <Route path="/onboarding" element={<Onboarding />} />
           
           {/* Protected Routes */}
@@ -204,7 +202,7 @@ const App = () => (
           {/* 404 Route - Must be last */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

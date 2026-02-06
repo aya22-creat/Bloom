@@ -1,310 +1,363 @@
 import React, { useState, useEffect } from 'react';
-import './NutritionPlan.css';
-
-const MEAL_PLANS = {
-  patient: {
-    breakfast: [
-      { name: 'شوفان بالتوت والمكسرات', calories: 350, ingredients: ['شوفان', 'توت', 'لوز', 'عسل'] },
-      { name: 'بيض مسلوق مع أفوكادو وخبز أسمر', calories: 380, ingredients: ['بيض', 'أفوكادو', 'خبز أسمر'] },
-      { name: 'زبادي يوناني بالفواكه', calories: 300, ingredients: ['زبادي', 'فراولة', 'موز', 'شيا'] }
-    ],
-    lunch: [
-      { name: 'سمك السلمون المشوي مع خضار', calories: 450, ingredients: ['سلمون', 'بروكلي', 'جزر', 'أرز بني'] },
-      { name: 'صدر دجاج مع سلطة كينوا', calories: 420, ingredients: ['دجاج', 'كينوا', 'خس', 'طماطم'] },
-      { name: 'عدس بالخضار وأرز بني', calories: 400, ingredients: ['عدس', 'جزر', 'كوسة', 'أرز'] }
-    ],
-    dinner: [
-      { name: 'شوربة خضار مع قطعة دجاج', calories: 300, ingredients: ['دجاج', 'كوسة', 'جزر', 'بطاطس'] },
-      { name: 'سلطة تونة بزيت الزيتون', calories: 350, ingredients: ['تونة', 'خس', 'زيتون', 'طماطم'] },
-      { name: 'بطاطا حلوة مشوية مع سلطة', calories: 320, ingredients: ['بطاطا حلوة', 'خضار مشكلة'] }
-    ],
-    snacks: [
-      { name: 'موز مع زبدة اللوز', calories: 200 },
-      { name: 'جزر وخيار مع حمص', calories: 150 },
-      { name: 'حفنة مكسرات نيئة', calories: 180 }
-    ]
-  },
-  survivor: {
-    breakfast: [
-      { name: 'سموثي أخضر بالسبانخ والتفاح', calories: 280, ingredients: ['سبانخ', 'تفاح', 'موز', 'شيا'] },
-      { name: 'توست أسمر بالأفوكادو والبيض', calories: 360, ingredients: ['خبز أسمر', 'أفوكادو', 'بيض'] },
-      { name: 'فطائر الشوفان بالتوت', calories: 320, ingredients: ['شوفان', 'توت', 'بيض', 'قرفة'] }
-    ],
-    lunch: [
-      { name: 'سلطة الفاصوليا السوداء', calories: 380, ingredients: ['فاصوليا', 'أفوكادو', 'ذرة', 'طماطم'] },
-      { name: 'دجاج بالكاري مع أرز بني', calories: 420, ingredients: ['دجاج', 'كاري', 'أرز', 'خضار'] },
-      { name: 'معكرونة القمح الكامل بالخضار', calories: 400, ingredients: ['معكرونة', 'بروكلي', 'طماطم'] }
-    ],
-    dinner: [
-      { name: 'سمك مشوي مع خضار بخار', calories: 350, ingredients: ['سمك', 'بروكلي', 'جزر'] },
-      { name: 'حساء العدس الأحمر', calories: 300, ingredients: ['عدس', 'طماطم', 'كمون'] },
-      { name: 'دجاج مشوي مع سلطة خضراء', calories: 330, ingredients: ['دجاج', 'خس', 'خيار'] }
-    ],
-    snacks: [
-      { name: 'تفاحة مع زبدة الفول السوداني', calories: 190 },
-      { name: 'زبادي بالعنب البري', calories: 160 },
-      { name: 'كرات الطاقة بالتمر', calories: 140 }
-    ]
-  },
-  preventive: {
-    breakfast: [
-      { name: 'بان كيك الموز بالشوفان', calories: 340, ingredients: ['موز', 'شوفان', 'بيض', 'قرفة'] },
-      { name: 'زبادي بالجرانولا والفواكه', calories: 310, ingredients: ['زبادي', 'جرانولا', 'توت'] },
-      { name: 'عجة الخضار مع خبز أسمر', calories: 330, ingredients: ['بيض', 'سبانخ', 'طماطم'] }
-    ],
-    lunch: [
-      { name: 'سلطة الكينوا بالخضار الملونة', calories: 390, ingredients: ['كينوا', 'خيار', 'طماطم', 'نعناع'] },
-      { name: 'دجاج تكا مسالا مع أرز', calories: 430, ingredients: ['دجاج', 'طماطم', 'كريمة', 'أرز'] },
-      { name: 'برجر نباتي مع بطاطا مشوية', calories: 410, ingredients: ['برجر نباتي', 'خس', 'بطاطا'] }
-    ],
-    dinner: [
-      { name: 'باستا الخضار بالصلصة الحمراء', calories: 360, ingredients: ['معكرونة', 'كوسة', 'باذنجان'] },
-      { name: 'سمك التونة المشوي مع السلطة', calories: 340, ingredients: ['تونة', 'سلطة', 'ليمون'] },
-      { name: 'شوربة الدجاج بالخضار', calories: 290, ingredients: ['دجاج', 'جزر', 'كرفس'] }
-    ],
-    snacks: [
-      { name: 'شرائح تفاح بالقرفة', calories: 120 },
-      { name: 'حمص بالخضار النيئة', calories: 170 },
-      { name: 'كوب فشار بدون زبدة', calories: 100 }
-    ]
-  }
-};
-
-const SUPERFOODS = [
-  { name: 'التوت البري', benefit: 'غني بمضادات الأكسدة', icon: '🫐' },
-  { name: 'البروكلي', benefit: 'يحتوي على مركبات مضادة للسرطان', icon: '🥦' },
-  { name: 'الثوم', benefit: 'يعزز جهاز المناعة', icon: '🧄' },
-  { name: 'الكركم', benefit: 'مضاد قوي للالتهابات', icon: '✨' },
-  { name: 'السلمون', benefit: 'غني بأوميغا 3', icon: '🐟' },
-  { name: 'الشاي الأخضر', benefit: 'مضاد للأكسدة', icon: '🍵' },
-  { name: 'الجوز', benefit: 'يدعم صحة الثدي', icon: '🌰' },
-  { name: 'الرمان', benefit: 'يحمي الخلايا', icon: '🍒' }
-];
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getCurrentUser } from '@/lib/database';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ArrowLeft, Bell, User as UserIcon, Flower2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 const NutritionPlan = () => {
-  const [userType, setUserType] = useState('patient');
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { theme } = useTheme();
+  const { toast } = useToast();
+  const user = getCurrentUser();
+  
   const [selectedMeal, setSelectedMeal] = useState('breakfast');
   const [waterIntake, setWaterIntake] = useState(0);
   const [caloriesTarget] = useState(1800);
   const [todayCalories, setTodayCalories] = useState(0);
+  const [mealLog, setMealLog] = useState([]);
 
+  const isDarkMode = theme === 'dark';
 
   useEffect(() => {
     loadTodayData();
-    const profile = JSON.parse(localStorage.getItem('userProfile') || '{}');
-    if (profile.userType) {
-      setUserType(profile.userType);
-    }
+    loadMealLog();
   }, []);
 
   const loadTodayData = () => {
     const today = new Date().toDateString();
-    const saved = localStorage.getItem('nutritionData');
+    const saved = localStorage.getItem(`nutrition_${today}`);
     if (saved) {
       const data = JSON.parse(saved);
-      if (data.date === today) {
-        setWaterIntake(data.water || 0);
-        setTodayCalories(data.calories || 0);
-      }
+      setWaterIntake(data.waterIntake || 0);
+      setTodayCalories(data.calories || 0);
     }
   };
 
-  const saveTodayData = (water, calories) => {
-    const data = {
-      date: new Date().toDateString(),
-      water,
-      calories
+  const saveTodayData = (water: number, calories: number) => {
+    const today = new Date().toDateString();
+    localStorage.setItem(`nutrition_${today}`, JSON.stringify({
+      waterIntake: water,
+      calories: calories,
+      timestamp: new Date().toISOString()
+    }));
+  };
+
+  const loadMealLog = () => {
+    const mealLogs = localStorage.getItem('meal_log');
+    if (mealLogs) {
+      setMealLog(JSON.parse(mealLogs));
+    }
+  };
+
+  const addMealCalories = (meal: any, mealType: string) => {
+    const newCalories = todayCalories + meal.calories;
+    setTodayCalories(newCalories);
+    saveTodayData(waterIntake, newCalories);
+    
+    const newLog = {
+      ...meal,
+      mealType,
+      timestamp: new Date().toISOString()
     };
-    localStorage.setItem('nutritionData', JSON.stringify(data));
+    const updatedLog = [...mealLog, newLog];
+    setMealLog(updatedLog);
+    localStorage.setItem('meal_log', JSON.stringify(updatedLog));
+    
+    toast({
+      title: t('wellness.meal_added') || 'Meal Added',
+      description: `${meal.name} - ${meal.calories} cal`,
+    });
   };
 
-  const addWater = (amount) => {
-    const newAmount = waterIntake + amount;
-    setWaterIntake(newAmount);
-    saveTodayData(newAmount, todayCalories);
-  };
-
-  const addMealCalories = (calories) => {
-    const newTotal = todayCalories + calories;
-    setTodayCalories(newTotal);
-    saveTodayData(waterIntake, newTotal);
+  const addWater = (cups: number) => {
+    const newWaterIntake = waterIntake + cups;
+    setWaterIntake(newWaterIntake);
+    saveTodayData(newWaterIntake, todayCalories);
   };
 
   const getMealPlans = () => {
-    return MEAL_PLANS[userType] || MEAL_PLANS.patient;
+    return {
+      breakfast: [
+        { name: 'شوفان بالتوت والمكسرات', calories: 350, protein: 12, benefit: 'غني بالألياف', ingredients: ['شوفان', 'توت', 'لوز'] },
+        { name: 'Oatmeal with berries', calories: 350, protein: 12, benefit: 'High fiber', ingredients: ['oats', 'berries', 'almonds'] },
+        { name: 'بيض مسلوق مع أفوكادو', calories: 380, protein: 18, benefit: 'بروتين عالي', ingredients: ['بيض', 'أفوكادو'] },
+        { name: 'Boiled eggs with avocado', calories: 380, protein: 18, benefit: 'High protein', ingredients: ['eggs', 'avocado'] }
+      ],
+      lunch: [
+        { name: 'سمك السلمون مع خضار', calories: 450, protein: 35, benefit: 'أوميغا 3', ingredients: ['سلمون', 'بروكلي', 'أرز'] },
+        { name: 'Salmon with vegetables', calories: 450, protein: 35, benefit: 'Omega 3', ingredients: ['salmon', 'broccoli', 'rice'] },
+        { name: 'صدر دجاج مع سلطة', calories: 420, protein: 40, benefit: 'بروتين كامل', ingredients: ['دجاج', 'سلطة'] },
+        { name: 'Chicken breast with salad', calories: 420, protein: 40, benefit: 'Complete protein', ingredients: ['chicken', 'salad'] }
+      ],
+      dinner: [
+        { name: 'شوربة خضار مع دجاج', calories: 300, protein: 22, benefit: 'خفيف الهضم', ingredients: ['دجاج', 'خضار'] },
+        { name: 'Vegetable soup with chicken', calories: 300, protein: 22, benefit: 'Light digestion', ingredients: ['chicken', 'vegetables'] },
+        { name: 'سمك مشوي بالأعشاب', calories: 340, protein: 30, benefit: 'قليل الدهون', ingredients: ['سمك', 'أعشاب'] },
+        { name: 'Grilled fish with herbs', calories: 340, protein: 30, benefit: 'Low fat', ingredients: ['fish', 'herbs'] }
+      ],
+      snacks: [
+        { name: 'موز مع زبدة اللوز', calories: 200, protein: 8, benefit: 'طاقة مستدامة', ingredients: ['موز', 'زبدة لوز'] },
+        { name: 'Banana with almond butter', calories: 200, protein: 8, benefit: 'Sustained energy', ingredients: ['banana', 'almond butter'] },
+        { name: 'جزر وخيار مع حمص', calories: 150, protein: 6, benefit: 'ألياف وفيتامينات', ingredients: ['جزر', 'خيار', 'حمص'] },
+        { name: 'Carrots and hummus', calories: 150, protein: 6, benefit: 'Fiber and vitamins', ingredients: ['carrots', 'cucumber', 'hummus'] }
+      ]
+    };
   };
 
   return (
-    <div className="nutrition-page">
-      <div className="nutrition-header">
-        <button onClick={() => window.history.back()} className="back-btn">←</button>
-        <h1>🍎 خطة التغذية</h1>
-        <div style={{ width: '40px' }}></div>
-      </div>
+    <div className={`min-h-screen transition-colors ${isDarkMode ? 'dark bg-zinc-950' : 'bg-gradient-to-br from-rose-50 via-white to-pink-50'}`}>
+      {/* Header - Integrated with app */}
+      <header className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b border-border shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="hover:bg-rose-100 dark:hover:bg-rose-900/20"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center shadow-md">
+              <Flower2 className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 dark:from-rose-400 dark:to-pink-400 bg-clip-text text-transparent">
+              {t('wellness.nutrition_plan') || '🍎 Nutrition Plan'}
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <ThemeSwitcher />
+            <Button variant="ghost" size="icon" className="hover:bg-rose-100 dark:hover:bg-rose-900/20">
+              <Bell className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="hover:bg-rose-100 dark:hover:bg-rose-900/20">
+              <UserIcon className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </header>
 
-      <div className="nutrition-content">
-        {/* Daily Tracker */}
-        <div className="daily-tracker">
-          <WaterTracker 
-            current={waterIntake}
-            target={8}
-            onAdd={addWater}
-          />
-          <CalorieTracker 
-            current={todayCalories}
-            target={caloriesTarget}
-          />
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {/* Daily Tracker Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Water Intake Card */}
+          <Card className="p-6 bg-white dark:bg-zinc-900 shadow-soft border-0 overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">💧 {t('wellness.water_intake') || 'Water Intake'}</h3>
+                <span className="text-3xl font-bold text-transparent bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text">
+                  {waterIntake}/8
+                </span>
+              </div>
+              
+              {/* Water Progress Bar */}
+              <div className="mb-6">
+                <div className="w-full h-3 bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300"
+                    style={{ width: `${(waterIntake / 8) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => addWater(1)}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                  size="sm"
+                >
+                  +1 Cup
+                </Button>
+                <Button
+                  onClick={() => addWater(2)}
+                  className="flex-1 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  variant="outline"
+                  size="sm"
+                >
+                  +2 Cups
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Calories Card */}
+          <Card className="p-6 bg-white dark:bg-zinc-900 shadow-soft border-0 overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-200/30 to-red-200/30 dark:from-orange-900/20 dark:to-red-900/20 rounded-full -ml-16 -mt-16 blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">🔥 {t('wellness.calories') || 'Calories'}</h3>
+                <span className="text-3xl font-bold text-transparent bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text">
+                  {todayCalories}
+                </span>
+              </div>
+
+              {/* Calorie Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                  <span>{t('wellness.target') || 'Target'}: {caloriesTarget}</span>
+                  <span>{t('wellness.remaining') || 'Remaining'}: {Math.max(caloriesTarget - todayCalories, 0)}</span>
+                </div>
+                <div className="w-full h-3 bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-300"
+                    style={{ width: `${Math.min((todayCalories / caloriesTarget) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {todayCalories >= caloriesTarget && (
+                <p className="text-sm text-orange-600 dark:text-orange-400">✓ {t('wellness.goal_reached') || 'Daily goal reached!'}</p>
+              )}
+            </div>
+          </Card>
         </div>
 
-        {/* Meal Selector */}
-        <div className="meal-selector">
-          <button 
-            className={selectedMeal === 'breakfast' ? 'active' : ''}
-            onClick={() => setSelectedMeal('breakfast')}
-          >
-            🌅 فطور
-          </button>
-          <button 
-            className={selectedMeal === 'lunch' ? 'active' : ''}
-            onClick={() => setSelectedMeal('lunch')}
-          >
-            ☀️ غداء
-          </button>
-          <button 
-            className={selectedMeal === 'dinner' ? 'active' : ''}
-            onClick={() => setSelectedMeal('dinner')}
-          >
-            🌙 عشاء
-          </button>
-          <button 
-            className={selectedMeal === 'snacks' ? 'active' : ''}
-            onClick={() => setSelectedMeal('snacks')}
-          >
-            🍪 سناك
-          </button>
-        </div>
-
-        {/* Meal Options */}
-        <div className="meal-options">
-          <h3>خيارات {selectedMeal === 'breakfast' ? 'الفطور' : 
-                      selectedMeal === 'lunch' ? 'الغداء' : 
-                      selectedMeal === 'dinner' ? 'العشاء' : 'السناك'}</h3>
-          <div className="meals-grid">
-            {getMealPlans()[selectedMeal]?.map((meal, index) => (
-              <MealCard 
-                key={index} 
-                meal={meal}
-                onAdd={() => addMealCalories(meal.calories)}
-              />
+        {/* Meal Selector Tabs */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground">{t('wellness.select_meal') || 'Select a Meal'}</h2>
+          
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { id: 'breakfast', icon: '🌅', label: 'wellness.breakfast' },
+              { id: 'lunch', icon: '☀️', label: 'wellness.lunch' },
+              { id: 'dinner', icon: '🌙', label: 'wellness.dinner' },
+              { id: 'snacks', icon: '🍪', label: 'wellness.snacks' }
+            ].map((meal) => (
+              <Button
+                key={meal.id}
+                onClick={() => setSelectedMeal(meal.id)}
+                className={`whitespace-nowrap px-6 transition-all ${
+                  selectedMeal === meal.id
+                    ? 'bg-gradient-to-r from-primary to-accent text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900 text-foreground border border-border hover:border-primary/50 hover:shadow-sm'
+                }`}
+              >
+                {meal.icon} {t(meal.label) || meal.id}
+              </Button>
             ))}
           </div>
         </div>
 
-        {/* Superfoods Section */}
-        <div className="superfoods-section">
-          <h3>🌟 أطعمة خارقة لصحة الثدي</h3>
-          <div className="superfoods-grid">
-            {SUPERFOODS.map((food, index) => (
-              <SuperfoodCard key={index} food={food} />
-            ))}
-          </div>
-        </div>
+        {/* Meal Options Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {getMealPlans()[selectedMeal]?.map((meal, index) => (
+            <Card
+              key={index}
+              className="p-5 bg-white dark:bg-zinc-900 shadow-soft border-0 hover:shadow-glow transition-all duration-300 group cursor-pointer overflow-hidden relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              <div className="relative z-10">
+                <h3 className="font-semibold text-foreground mb-3 text-lg group-hover:text-primary transition-colors">
+                  {meal.name}
+                </h3>
 
-        {/* Nutrition Tips */}
-        <NutritionTips />
-      </div>
-    </div>
-  );
-};
+                {/* Meal Stats */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="text-xs bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300 px-3 py-1 rounded-full font-medium">
+                    {meal.calories} cal
+                  </span>
+                  {meal.protein && (
+                    <span className="text-xs bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 text-amber-700 dark:text-amber-300 px-3 py-1 rounded-full font-medium">
+                      {meal.protein}g protein
+                    </span>
+                  )}
+                </div>
 
-const WaterTracker = ({ current, target, onAdd }) => {
-  const percentage = Math.min((current / target) * 100, 100);
+                {/* Benefit */}
+                {meal.benefit && (
+                  <p className="text-sm text-muted-foreground mb-4 flex items-center gap-2">
+                    <span>✨</span> {meal.benefit}
+                  </p>
+                )}
 
-  return (
-    <div className="tracker-card water">
-      <div className="tracker-header">
-        <h4>💧 شرب الماء</h4>
-        <span className="tracker-value">{current} / {target} أكواس</span>
-      </div>
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${percentage}%` }} />
-      </div>
-      <div className="water-actions">
-        <button onClick={() => onAdd(1)} className="add-water-btn">+1 كوب</button>
-        <button onClick={() => onAdd(2)} className="add-water-btn">+2 كوب</button>
-      </div>
-    </div>
-  );
-};
+                {/* Ingredients */}
+                {meal.ingredients && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {meal.ingredients.map((ing, i) => (
+                      <span
+                        key={i}
+                        className="text-xs bg-rose-100/50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-2 py-1 rounded-md"
+                      >
+                        {ing}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-const CalorieTracker = ({ current, target }) => {
-  const percentage = Math.min((current / target) * 100, 100);
-  const remaining = Math.max(target - current, 0);
-
-  return (
-    <div className="tracker-card calories">
-      <div className="tracker-header">
-        <h4>🔥 السعرات الحرارية</h4>
-        <span className="tracker-value">{current} / {target}</span>
-      </div>
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${percentage}%` }} />
-      </div>
-      <p className="remaining">متبقي: {remaining} سعرة</p>
-    </div>
-  );
-};
-
-const MealCard = ({ meal, onAdd }) => (
-  <div className="meal-card">
-    <div className="meal-info">
-      <h4>{meal.name}</h4>
-      <div className="calories-badge">{meal.calories} سعرة</div>
-      {meal.ingredients && (
-        <div className="ingredients">
-          {meal.ingredients.map((ing, i) => (
-            <span key={i} className="ingredient-tag">{ing}</span>
+                {/* Add Button */}
+                <Button
+                  onClick={() => addMealCalories(meal, selectedMeal)}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-glow text-white border-0 font-medium"
+                  size="sm"
+                >
+                  {t('wellness.add') || 'Add Meal'} +
+                </Button>
+              </div>
+            </Card>
           ))}
         </div>
-      )}
-    </div>
-    <button onClick={onAdd} className="add-meal-btn">
-      + إضافة
-    </button>
-  </div>
-);
 
-const SuperfoodCard = ({ food }) => (
-  <div className="superfood-card">
-    <div className="superfood-icon">{food.icon}</div>
-    <h5>{food.name}</h5>
-    <p>{food.benefit}</p>
-  </div>
-);
+        {/* Nutrition Tips Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+          <Card className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800/50 shadow-soft">
+            <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-300 mb-4">💧 {t('wellness.hydration_tips') || 'Hydration Tips'}</h3>
+            <ul className="space-y-3 text-sm text-emerald-800 dark:text-emerald-200">
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_water_morning') || 'Drink water first thing in the morning'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_water_meals') || 'Drink water with every meal'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_water_exercise') || 'Increase intake during exercise'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_water_evening') || 'Limit water intake 2 hours before bed'}</span>
+              </li>
+            </ul>
+          </Card>
 
-const NutritionTips = () => (
-  <div className="nutrition-tips">
-    <h3>💡 نصائح غذائية مهمة</h3>
-    <div className="tips-grid">
-      <div className="tip-card">
-        <span className="tip-icon">🥗</span>
-        <p>تناولي 5 حصص من الخضار والفواكه يومياً</p>
-      </div>
-      <div className="tip-card">
-        <span className="tip-icon">🚫</span>
-        <p>قللي من السكريات المصنعة واللحوم الحمراء</p>
-      </div>
-      <div className="tip-card">
-        <span className="tip-icon">🌾</span>
-        <p>اختاري الحبوب الكاملة بدلاً من المكررة</p>
-      </div>
-      <div className="tip-card">
-        <span className="tip-icon">🥜</span>
-        <p>أضيفي المكسرات والبذور لوجباتك</p>
-      </div>
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800/50 shadow-soft">
+            <h3 className="text-xl font-bold text-purple-900 dark:text-purple-300 mb-4">🥗 {t('wellness.nutrition_tips') || 'Nutrition Tips'}</h3>
+            <ul className="space-y-3 text-sm text-purple-800 dark:text-purple-200">
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_balance') || 'Balance proteins, carbs, and healthy fats'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_colorful') || 'Eat colorful vegetables daily'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_portions') || 'Practice portion control'}</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✓</span>
+                <span>{t('wellness.tip_frequent') || 'Eat smaller meals more frequently'}</span>
+              </li>
+            </ul>
+          </Card>
+        </div>
+      </main>
     </div>
-  </div>
-);
+  );
+};
 
 export default NutritionPlan;
-

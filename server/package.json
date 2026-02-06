@@ -7,7 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p .",
     "start": "node dist/index.js",
-    "migrate": "ts-node src/scripts/migrateUserFields.ts"
+    "migrate": "ts-node src/scripts/migrateUserFields.ts",
+    "seed": "ts-node src/scripts/seed-realistic-data.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

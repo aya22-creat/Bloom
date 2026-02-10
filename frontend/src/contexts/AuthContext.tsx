@@ -6,6 +6,7 @@ export interface User {
   email: string;
   phone?: string | null;
   userType: 'fighter' | 'survivor' | 'wellness';
+  role?: 'patient' | 'doctor' | 'admin';
   language?: 'ar' | 'en';
   token: string;
 }

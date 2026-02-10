@@ -27,6 +27,12 @@ import CommunityForum from "./pages/wellness/CommunityForum";
 import Reminders from "./pages/dashboard/Reminders";
 import ReminderAction from "./pages/dashboard/ReminderAction";
 import Meditation from "./pages/wellness/Meditation";
+import Marketplace from "./pages/marketplace/Marketplace";
+import ProductDetails from "./pages/marketplace/ProductDetails";
+import CartPage from "./pages/marketplace/CartPage";
+import CheckoutPage from "./pages/marketplace/CheckoutPage";
+import OrderSuccess from "./pages/marketplace/OrderSuccess";
+import CompanyAnalyticsPage from "./pages/marketplace/CompanyAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -223,6 +229,70 @@ const App = () => (
                 <Meditation />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/marketplace/:userType"
+            element={
+              <ProtectedRoute>
+                <Marketplace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketplace"
+            element={
+              <ProtectedRoute>
+                <Marketplace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketplace/:userType/product/:productId"
+            element={
+              <ProtectedRoute>
+                <ProductDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketplace/product/:productId"
+            element={
+              <ProtectedRoute>
+                <ProductDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <CartPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/order-success"
+            element={
+              <ProtectedRoute>
+                <OrderSuccess />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/analytics"
+            element={
+              <ProtectedRoute>
+                <CompanyAnalyticsPage />
+              </ProtectedRoute>
+            }
           />
           
           {/* Catch invalid protected routes */}

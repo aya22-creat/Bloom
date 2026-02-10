@@ -15,6 +15,20 @@ router.get('/products', (req, res) => {
   })
 })
 
+router.get('/products/:id', (req, res) => {
+  const id = Number(req.params.id)
+  if (!id) return res.status(400).json({ success: false, error: 'invalid_id' })
+  Database.db.get(
+    `SELECT p.*, v.name as vendor_name FROM products p JOIN vendors v ON v.id=p.vendor_id WHERE p.id = ?`,
+    [id],
+    (err, row) => {
+      if (err) return res.status(500).json({ success: false, error: 'db_error' })
+      if (!row) return res.status(404).json({ success: false, error: 'not_found' })
+      res.json({ success: true, data: row })
+    }
+  )
+})
+
 router.post('/vendors', (req, res) => {
   const { name, contact_email, contact_phone } = req.body || {}
   if (!name) return res.status(400).json({ success: false, error: 'name_required' })

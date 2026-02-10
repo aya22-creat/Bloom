@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
+  ShoppingBag
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
@@ -215,6 +216,13 @@ const Dashboard = () => {
       description: t('dashboard.reminders_desc'),
       color: "bg-orange-100 text-orange-600",
       route: "reminders",
+    },
+    {
+      icon: ShoppingBag,
+      title: t('navigation.marketplace'),
+      description: t('dashboard.marketplace_desc'),
+      color: "bg-rose-100 text-rose-600",
+      route: "marketplace",
     },
   ];
 

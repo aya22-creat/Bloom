@@ -15,6 +15,7 @@ import { AIService } from '../ai/ai.service';
 import { AITask } from '../ai/types';
 import { AppError } from '../utils/error.util';
 import { HttpStatus } from '../constants/http-status';
+import { Database } from '../lib/database';
 
 const router = Router();
 const aiService = AIService.getInstance();
@@ -157,6 +158,69 @@ router.post('/wellness-advice', async (req: Request, res: Response, next: NextFu
       success: true,
       message: 'Wellness advice generated',
       data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ENDPOINT: AI product recommendations
+ * POST /ai/recommend-products
+ */
+router.post('/recommend-products', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).userId || 'anonymous';
+    const { userJourney, viewedProducts, cartItems, categories } = req.body || {};
+
+    const response = await aiService.chat(userId, {
+      task: AITask.RECOMMEND_PRODUCTS,
+      userId,
+      input: {
+        userJourney: userJourney || 'wellness',
+        viewedProducts: viewedProducts || [],
+        cartItems: cartItems || [],
+        categories: categories || [],
+      },
+      context: { language: 'en' },
+    });
+
+    let recommendedIds: number[] = [];
+    let explanations: Record<string, string> = {};
+
+    try {
+      const parsed = JSON.parse(String(response.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, ''));
+      if (Array.isArray(parsed?.recommendedIds)) {
+        recommendedIds = parsed.recommendedIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id));
+      }
+      if (parsed?.explanations && typeof parsed.explanations === 'object') {
+        explanations = parsed.explanations;
+      }
+    } catch {
+      // ignore, fallback below
+    }
+
+    if (!recommendedIds.length) {
+      const catList = Array.isArray(categories) ? categories.filter(Boolean) : [];
+      const params: any[] = [];
+      const where = catList.length ? `WHERE p.category IN (${catList.map(() => '?').join(',')})` : '';
+      params.push(...catList);
+      const sql = `SELECT p.id FROM products p ${where} ORDER BY p.created_at DESC LIMIT 6`;
+      const fallbackIds = await new Promise<number[]>((resolve) => {
+        Database.db.all(sql, params, (err, rows) => {
+          if (err) return resolve([]);
+          resolve((rows || []).map((r: any) => Number(r.id)).filter((id: number) => Number.isFinite(id)));
+        });
+      });
+      recommendedIds = fallbackIds;
+    }
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      data: {
+        recommendedIds,
+        explanations,
+      },
     });
   } catch (error) {
     next(error);

@@ -202,6 +202,7 @@ export class Database {
          email NVARCHAR(255) UNIQUE NOT NULL,
          password NVARCHAR(MAX) NOT NULL,
          phone NVARCHAR(30) NULL,
+         role NVARCHAR(20) DEFAULT 'patient',
          user_type NVARCHAR(50) NULL,
          language NVARCHAR(10) NULL,
          created_at DATETIME DEFAULT GETDATE()
@@ -274,6 +275,54 @@ export class Database {
          type NVARCHAR(20) NOT NULL,
          completed_at DATETIME DEFAULT GETDATE()
        )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='vendors' AND xtype='U')
+       CREATE TABLE vendors (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         name NVARCHAR(255) NOT NULL,
+         contact_email NVARCHAR(255) NULL,
+         contact_phone NVARCHAR(30) NULL,
+         verified BIT DEFAULT 0,
+         created_at DATETIME DEFAULT GETDATE()
+       )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='products' AND xtype='U')
+       CREATE TABLE products (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         vendor_id INT NOT NULL,
+         name NVARCHAR(255) NOT NULL,
+         description NVARCHAR(MAX) NULL,
+         category NVARCHAR(100) NULL,
+         price FLOAT NULL,
+         currency NVARCHAR(10) NULL,
+         verified BIT DEFAULT 0,
+         active BIT DEFAULT 1,
+         created_at DATETIME DEFAULT GETDATE()
+       )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='orders' AND xtype='U')
+       CREATE TABLE orders (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         user_id INT NULL,
+         status NVARCHAR(30) DEFAULT 'pending',
+         amount_cents INT NOT NULL,
+         currency NVARCHAR(10) DEFAULT 'USD',
+         intent_id NVARCHAR(100) NULL,
+         shipping_name NVARCHAR(255) NULL,
+         shipping_phone NVARCHAR(30) NULL,
+         shipping_address NVARCHAR(MAX) NULL,
+         created_at DATETIME DEFAULT GETDATE(),
+         updated_at DATETIME DEFAULT GETDATE(),
+         paid_at DATETIME NULL
+       )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='order_items' AND xtype='U')
+       CREATE TABLE order_items (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         order_id INT NOT NULL,
+         product_id INT NOT NULL,
+         quantity INT NOT NULL,
+         unit_price_cents INT NOT NULL,
+         total_price_cents INT NOT NULL,
+         currency NVARCHAR(10) DEFAULT 'USD',
+         created_at DATETIME DEFAULT GETDATE()
+       )`,
     ];
 
     for (const q of queries) {
@@ -329,6 +378,7 @@ export class Database {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         phone TEXT,
+        role TEXT DEFAULT 'patient',
         user_type TEXT,
         language TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -430,6 +480,33 @@ export class Database {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
       )`,
+      `CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        status TEXT DEFAULT 'pending',
+        amount_cents INTEGER NOT NULL,
+        currency TEXT DEFAULT 'USD',
+        intent_id TEXT,
+        shipping_name TEXT,
+        shipping_phone TEXT,
+        shipping_address TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        paid_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price_cents INTEGER NOT NULL,
+        total_price_cents INTEGER NOT NULL,
+        currency TEXT DEFAULT 'USD',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      )`,
       `CREATE TABLE IF NOT EXISTS articles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -482,6 +559,7 @@ export class Database {
 
     const userAlters = [
       `ALTER TABLE users ADD COLUMN phone TEXT`,
+      `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'patient'`,
       `ALTER TABLE users ADD COLUMN user_type TEXT`,
       `ALTER TABLE users ADD COLUMN language TEXT`,
     ];
@@ -518,6 +596,120 @@ export class Database {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )`
     );
+
+    const getCount = (table: string) =>
+      new Promise<number>((resolve) => {
+        this.db.get(`SELECT COUNT(*) as count FROM ${table}`, (err, row) => {
+          if (err) return resolve(0);
+          resolve(Number(row?.count || 0));
+        });
+      });
+
+    const getFirstUserId = () =>
+      new Promise<number | null>((resolve) => {
+        this.db.get(`SELECT id FROM users ORDER BY id ASC LIMIT 1`, (err, row) => {
+          if (err || !row?.id) return resolve(null);
+          resolve(Number(row.id));
+        });
+      });
+
+    const vendorsCount = await getCount('vendors');
+    if (vendorsCount === 0) {
+      await runAsyncIgnore(
+        `INSERT INTO vendors (name, contact_email, contact_phone, verified) VALUES
+        ('ComfortCare Co.', 'hello@comfortcare.com', '+201111111111', 1),
+        ('Bloom Essentials', 'support@bloomessentials.com', '+201222222222', 1),
+        ('Serenity Wellness', 'care@serenitywellness.com', '+201333333333', 1)`
+      );
+    }
+
+    const productsCount = await getCount('products');
+    if (productsCount === 0) {
+      await runAsyncIgnore(
+        `INSERT INTO products (vendor_id, name, description, category, price, currency, verified, active) VALUES
+        (1, 'Post-Surgery Comfort Pillow', 'Ergonomic support pillow designed for recovery comfort.', 'Recovery', 29.99, 'USD', 1, 1),
+        (1, 'Soft Support Bra', 'Seamless breathable bra with gentle compression.', 'Recovery', 24.5, 'USD', 1, 1),
+        (2, 'Aloe Soothing Kit', 'Hydration and skin care essentials for sensitive skin.', 'Wellness', 19.99, 'USD', 1, 1),
+        (2, 'Mindful Journal', 'Guided journaling prompts for emotional resilience.', 'Mental Wellness', 14.99, 'USD', 1, 1),
+        (3, 'Herbal Calm Tea', 'Caffeine-free blend for evening relaxation.', 'Nutrition', 12.0, 'USD', 1, 1),
+        (3, 'Gentle Stretch Band', 'Low-resistance band for recovery exercises.', 'Fitness', 16.5, 'USD', 1, 1),
+        (2, 'Cooling Eye Mask', 'Comfort aid for rest and relaxation.', 'Recovery', 11.75, 'USD', 1, 1),
+        (1, 'Post-Treatment Skincare Set', 'Nourishing routine for sensitive skin.', 'Wellness', 34.25, 'USD', 1, 1)`
+      );
+    }
+
+    const ordersCount = await getCount('orders');
+    if (ordersCount === 0) {
+      const userId = await getFirstUserId();
+      const now = new Date();
+      const makeDate = (daysAgo: number) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - daysAgo);
+        return d.toISOString();
+      };
+
+      const orderDates = [3, 8, 15, 28, 45, 70];
+      for (let i = 0; i < orderDates.length; i += 1) {
+        const createdAt = makeDate(orderDates[i]);
+        const status = i % 2 === 0 ? 'paid' : 'pending';
+        const intentId = `intent_demo_${i + 1}`;
+        const amountCents = 0;
+
+        const orderId = await new Promise<number>((resolve) => {
+          this.db.run(
+            `INSERT INTO orders (user_id, status, amount_cents, currency, intent_id, shipping_name, shipping_phone, shipping_address, created_at, updated_at, paid_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              status,
+              amountCents,
+              'USD',
+              intentId,
+              'Demo User',
+              '+201000000000',
+              'Cairo, Egypt',
+              createdAt,
+              createdAt,
+              status === 'paid' ? createdAt : null,
+            ],
+            function (this: RunResult) {
+              resolve(Number(this?.lastID || 0));
+            }
+          );
+        });
+
+        if (!orderId) continue;
+
+        const items = [
+          { productId: 1, quantity: 1 },
+          { productId: 3, quantity: 2 },
+          { productId: 5, quantity: 1 },
+        ];
+
+        let total = 0;
+        for (const item of items) {
+          await new Promise<void>((resolve) => {
+            this.db.get(`SELECT price, currency FROM products WHERE id = ?`, [item.productId], (err, row) => {
+              const price = Number(row?.price || 0);
+              const currency = row?.currency || 'USD';
+              const unitCents = Math.round(price * 100);
+              const lineTotal = unitCents * item.quantity;
+              total += lineTotal;
+              this.db.run(
+                `INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents, total_price_cents, currency, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [orderId, item.productId, item.quantity, unitCents, lineTotal, currency, createdAt],
+                () => resolve()
+              );
+            });
+          });
+        }
+
+        await new Promise<void>((resolve) => {
+          this.db.run(`UPDATE orders SET amount_cents = ? WHERE id = ?`, [total, orderId], () => resolve());
+        });
+      }
+    }
   }
 
   static async init() {

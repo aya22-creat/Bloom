@@ -33,6 +33,9 @@ export enum AITask {
   PREVENTIVE_TIPS = 'preventive_tips',
   LIFESTYLE_SUGGESTION = 'lifestyle_suggestion',
   APPOINTMENT_PREPARATION = 'appointment_preparation',
+  
+    // Marketplace
+    RECOMMEND_PRODUCTS = 'recommend_products',
 }
 
 /**
@@ -217,6 +220,13 @@ export interface AppointmentPreparationInput {
   appointmentType: string;
   concerns?: string[];
   previousResults?: string[];
+}
+
+export interface RecommendProductsInput {
+  userJourney: string;
+  viewedProducts?: number[];
+  cartItems?: number[];
+  categories?: string[];
 }
 
 /**

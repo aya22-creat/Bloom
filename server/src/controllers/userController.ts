@@ -23,13 +23,14 @@ const insertUser = (
   email: string,
   hashedPassword: string,
   phone: string | null,
+  role: string,
   userType: string,
   language: string
 ): Promise<number> =>
   new Promise((resolve, reject) => {
     Database.db.run(
-      `INSERT INTO users (username, email, password, phone, user_type, language) VALUES (?, ?, ?, ?, ?, ?)`,
-      [username, email, hashedPassword, phone, userType, language],
+      `INSERT INTO users (username, email, password, phone, role, user_type, language) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [username, email, hashedPassword, phone, role, userType, language],
       function (this: RunResult, err) {
         if (err) return reject(err);
         const insertedId = Number(this?.lastID || 0);
@@ -73,7 +74,7 @@ const normalizePhone = (input: unknown): string | null => {
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { username, email, password, userType, language, phone } = req.body;
+    const { username, email, password, userType, language, phone, role } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'username, email, and password are required.' });
@@ -88,6 +89,7 @@ export const registerUser = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const normalizedUserType = userType || 'wellness';
     const normalizedLanguage = language || 'en';
+    const normalizedRole = role || 'patient';
     const normalizedPhone = normalizePhone(phone);
 
     const newUserId = await insertUser(
@@ -95,6 +97,7 @@ export const registerUser = async (req: Request, res: Response) => {
       email,
       hashedPassword,
       normalizedPhone,
+      normalizedRole,
       normalizedUserType,
       normalizedLanguage
     );
@@ -106,6 +109,7 @@ export const registerUser = async (req: Request, res: Response) => {
       username,
       email,
       phone: normalizedPhone,
+      role: normalizedRole,
       userType: normalizedUserType,
       language: normalizedLanguage,
       token,
@@ -124,7 +128,7 @@ export const registerUser = async (req: Request, res: Response) => {
 export const getUserByEmail = (req: Request, res: Response) => {
   const { email } = req.params;
   Database.db.get(
-    `SELECT id, username, email, phone, user_type, language, created_at FROM users WHERE email = ?`,
+    `SELECT id, username, email, phone, role, user_type, language, created_at FROM users WHERE email = ?`,
     [email],
     (err, row) => {
       if (err || !row) {
@@ -167,6 +171,7 @@ export const loginUser = async (req: Request, res: Response) => {
       username: user.username,
       email: user.email,
       phone: user.phone || null,
+      role: user.role || 'patient',
       userType: user.user_type || 'wellness',
       language: user.language || 'en',
       token,
@@ -179,7 +184,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
 export const getAllUsers = (req: Request, res: Response) => {
   Database.db.all(
-    `SELECT id, username, email, phone, user_type, language, created_at FROM users`,
+    `SELECT id, username, email, phone, role, user_type, language, created_at FROM users`,
     (err, rows) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to fetch users.' });

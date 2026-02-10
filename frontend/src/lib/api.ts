@@ -667,6 +667,65 @@ export const apiReports = {
   },
 };
 
+// Marketplace
+export const apiMarketplace = {
+  listProducts: async () => {
+    try {
+      const res = await request('/marketplace/products');
+      const data = (res as any)?.data || res;
+      try {
+        localStorage.setItem('hb_marketplace_products', JSON.stringify(data));
+      } catch {
+        // ignore
+      }
+      return data;
+    } catch (err) {
+      const raw = localStorage.getItem('hb_marketplace_products');
+      return raw ? JSON.parse(raw) : [];
+    }
+  },
+  getProduct: async (id: number) => {
+    try {
+      const res = await request(`/marketplace/products/${id}`);
+      return (res as any)?.data || res;
+    } catch (err) {
+      const raw = localStorage.getItem('hb_marketplace_products');
+      const items = raw ? JSON.parse(raw) : [];
+      return items.find((p: any) => p.id === id) || null;
+    }
+  },
+};
+
+// Orders
+export const apiOrders = {
+  create: async (payload: {
+    userId?: number;
+    currency: string;
+    shipping: { name: string; phone: string; address: string; notes?: string };
+    items: Array<{ productId: number; quantity: number }>;
+  }) => request('/orders', { method: 'POST', body: JSON.stringify(payload) }),
+  listByUser: async (userId: number) => request(`/orders/user?userId=${userId}`),
+  listByCompany: async (companyId: number) => request(`/orders/company?companyId=${companyId}`),
+};
+
+// Company Analytics
+export const apiCompanyAnalytics = {
+  getSummary: async (params: { companyId?: number; all?: boolean; days?: number }) => {
+    const query = new URLSearchParams();
+    if (params.companyId) query.set('companyId', String(params.companyId));
+    if (params.all) query.set('all', 'true');
+    if (params.days) query.set('days', String(params.days));
+    return request(`/company/analytics/summary?${query.toString()}`);
+  },
+  getSales: async (params: { companyId?: number; all?: boolean; days?: number }) => {
+    const query = new URLSearchParams();
+    if (params.companyId) query.set('companyId', String(params.companyId));
+    if (params.all) query.set('all', 'true');
+    if (params.days) query.set('days', String(params.days));
+    return request(`/company/analytics/sales?${query.toString()}`);
+  },
+};
+
 // AI Assistant
 export const apiAI = {
   chat: async (payload: { prompt: string; system?: string; history?: any[]; mode?: 'health' | 'psych' }) => {
@@ -702,6 +761,12 @@ export const apiAI = {
       window.clearTimeout(timeoutId);
     }
   },
+  recommendProducts: async (payload: {
+    userJourney: string;
+    viewedProducts?: number[];
+    cartItems?: number[];
+    categories?: string[];
+  }) => request('/ai/recommend-products', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 export const apiCycleInsights = {

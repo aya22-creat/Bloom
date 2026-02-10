@@ -30,6 +30,8 @@ import aiCycleRouter from './routes/aiCycle.ts';
 import whatsappRouter from './routes/whatsapp.ts';
 import marketplaceRoutes from './routes/marketplace.ts';
 import communityRoutes from './routes/community.ts';
+import ordersRoutes from './routes/orders.ts';
+import companyAnalyticsRoutes from './routes/companyAnalytics.ts';
 
 // New RBAC routes
 // import userManagementRouter from './routes/userManagement';
@@ -75,6 +77,8 @@ app.use('/api/health-logs', healthLogsRouter);
 app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/company/analytics', companyAnalyticsRoutes);
 
 // New RBAC routes
 // app.use('/api/auth', userManagementRouter);

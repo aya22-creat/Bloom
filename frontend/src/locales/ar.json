@@ -99,7 +99,8 @@
       "educational_hub": "المركز التعليمي",
       "medical_centers": "المراكز الطبية",
       "mental_wellness": "العافية النفسية",
-      "reminders": "التذكيرات"
+      "reminders": "التذكيرات",
+      "marketplace": "المتجر"
     },
     "dashboard": {
       "welcome_back": "مرحباً بعودتك،",
@@ -127,7 +128,8 @@
       "educational_hub_desc": "معلومات موثوقة وموارد تعليمية",
       "medical_centers_desc": "ابحثي عن المستشفيات والعيادات القريبة",
       "mental_wellness_desc": "دعم للصحة النفسية والمرونة",
-      "reminders_desc": "ابقي على المسار بالتذكيرات الذكية"
+      "reminders_desc": "ابقي على المسار بالتذكيرات الذكية",
+      "marketplace_desc": "تسوقي مستلزمات العافية المختارة"
     },
   "common": {
     "loading": "جاري التحميل...",

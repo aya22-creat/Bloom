@@ -317,6 +317,31 @@ export class AIService {
   private generateFallbackResponse(userId: string, request: AIRequest): AIResponse {
       const input = request.input;
       let content = "";
+
+      if (request.task === AITask.RECOMMEND_PRODUCTS) {
+          const viewed = Array.isArray(input.viewedProducts) ? input.viewedProducts : [];
+          const cart = Array.isArray(input.cartItems) ? input.cartItems : [];
+          const merged = Array.from(new Set([...cart, ...viewed])).slice(0, 5);
+          const recommendations = merged.length ? merged : [1, 2, 3];
+          content = JSON.stringify({
+            recommendedIds: recommendations,
+            explanations: recommendations.reduce((acc: any, id: number) => {
+              acc[id] = "Supportive comfort and wellness-focused recommendation.";
+              return acc;
+            }, {}),
+          });
+          return {
+            content,
+            task: request.task,
+            metadata: {
+              model: 'fallback-rule-engine',
+              timestamp: new Date().toISOString(),
+              tokensUsed: 0,
+              processingTime: 0,
+            },
+            safety: { filtered: false },
+          };
+      }
       
       // Simple keyword matching for fallback
       const question = (input.question || input.prompt || "").toLowerCase();
@@ -623,6 +648,15 @@ export class AIService {
         return `Help prepare for: ${input.appointmentType || 'doctor appointment'}
                 Current concerns: ${input.concerns?.join(', ') || 'none specified'}
                 Suggest important questions to ask the doctor and records to bring.`;
+
+      case AITask.RECOMMEND_PRODUCTS:
+        return `You are recommending marketplace products for a user journey: ${input.userJourney || 'wellness'}.
+                Viewed products: ${input.viewedProducts?.join(', ') || 'none'}.
+                Cart items: ${input.cartItems?.join(', ') || 'none'}.
+                Product categories: ${input.categories?.join(', ') || 'general wellness'}.
+                Provide a ranked list of product IDs the user may like.
+                CRITICAL: Health-safe recommendations only. No medical claims, no diagnosis, no treatment promises.
+                Output JSON ONLY in this shape: {"recommendedIds":[1,2,3],"explanations":{"1":"reason"}}.`;
 
       default:
         throw this.createError(

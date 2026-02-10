@@ -10,5 +10,6 @@ export interface Reminder {
   days?: string[];   // ['monday','wednesday']
   interval?: string; // 'every_2_hours'
   enabled?: number;  // 1 or 0
+  mandatory?: number; // 1 or 0
   created_at?: string;
 }

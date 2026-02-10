@@ -13,15 +13,19 @@ import Profile from "./pages/dashboard/Profile";
 import { useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import AIHealthAssistant from "./pages/health/AIHealthAssistant";
+import SelfAssessment from "./pages/health/SelfAssessment";
 import HealthTracker from "./pages/health/HealthTracker";
 import NutritionPlan from "./pages/wellness/NutritionPlan";
 import ExerciseGuide from "./pages/education/ExerciseGuide";
 import AIExerciseCoach from "./pages/education/AIExerciseCoach";
 import EducationalHub from "./pages/education/EducationalHub";
+import ExerciseVideos from "./pages/education/ExerciseVideos";
+import ThreeDGuide from "./pages/education/ThreeDGuide";
 import MedicalCenters from "./pages/health/MedicalCenters";
 import MentalWellness from "./pages/wellness/MentalWellness";
 import CommunityForum from "./pages/wellness/CommunityForum";
 import Reminders from "./pages/dashboard/Reminders";
+import ReminderAction from "./pages/dashboard/ReminderAction";
 import Meditation from "./pages/wellness/Meditation";
 import NotFound from "./pages/NotFound";
 
@@ -109,6 +113,14 @@ const App = () => (
             } 
           />
           <Route 
+            path="/self-assessment/:userType" 
+            element={
+              <ProtectedRoute>
+                <SelfAssessment />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/health-tracker/:userType" 
             element={
               <ProtectedRoute>
@@ -149,6 +161,22 @@ const App = () => (
             } 
           />
           <Route 
+            path="/3d-guide/:userType" 
+            element={
+              <ProtectedRoute>
+                <ThreeDGuide />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/exercise-videos/:userType" 
+            element={
+              <ProtectedRoute>
+                <ExerciseVideos />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/medical-centers/:userType" 
             element={
               <ProtectedRoute>
@@ -177,6 +205,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <Reminders />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/reminder-action/:userType/:type" 
+            element={
+              <ProtectedRoute>
+                <ReminderAction />
               </ProtectedRoute>
             } 
           />

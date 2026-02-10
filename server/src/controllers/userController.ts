@@ -1,18 +1,18 @@
 import { Request, Response } from 'express';
 import { Database, RunResult } from '../lib/database';
 import bcrypt from 'bcryptjs';
-import { sign } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
 
 const generateToken = (userId: number, email: string): string =>
-  sign({ id: userId, email, type: 'access' }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  jwt.sign({ id: userId, email, type: 'access' }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
 // Promise helpers around the sqlite wrapper
-const getUserByEmailDb = (email: string): Promise<any | null> =>
+const getUserByIdentifierDb = (identifier: string): Promise<any | null> =>
   new Promise((resolve, reject) => {
-    Database.db.get(`SELECT * FROM users WHERE email = ?`, [email], (err, row) => {
+    Database.db.get(`SELECT * FROM users WHERE email = ? OR username = ?`, [identifier, identifier], (err, row) => {
       if (err) return reject(err);
       resolve(row || null);
     });
@@ -22,30 +22,65 @@ const insertUser = (
   username: string,
   email: string,
   hashedPassword: string,
+  phone: string | null,
   userType: string,
   language: string
 ): Promise<number> =>
   new Promise((resolve, reject) => {
     Database.db.run(
-      `INSERT INTO users (username, email, password, user_type, language) VALUES (?, ?, ?, ?, ?)`,
-      [username, email, hashedPassword, userType, language],
+      `INSERT INTO users (username, email, password, phone, user_type, language) VALUES (?, ?, ?, ?, ?, ?)`,
+      [username, email, hashedPassword, phone, userType, language],
       function (this: RunResult, err) {
         if (err) return reject(err);
-        resolve(this.lastID);
+        const insertedId = Number(this?.lastID || 0);
+        if (insertedId && insertedId > 0) {
+          resolve(insertedId);
+          return;
+        }
+        Database.db.get(`SELECT id FROM users WHERE email = ?`, [email], (e2, row) => {
+          if (e2 || !row?.id) return reject(e2 || new Error('Failed to fetch inserted user id'));
+          resolve(Number(row.id));
+        });
       }
     );
   });
 
+const normalizePhone = (input: unknown): string | null => {
+  if (!input) return null;
+  const raw = String(input).trim();
+  if (!raw) return null;
+
+  const cleaned = raw.replace(/[^\d+]/g, '');
+
+  if (cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '');
+    if (digits.length < 8) return null;
+    return `+${digits}`;
+  }
+
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  if (digitsOnly.length < 8) return null;
+
+  if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+    return `+20${digitsOnly.slice(1)}`;
+  }
+  if (digitsOnly.startsWith('20') && digitsOnly.length >= 10) {
+    return `+${digitsOnly}`;
+  }
+
+  return `+${digitsOnly}`;
+};
+
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { username, email, password, userType, language } = req.body;
+    const { username, email, password, userType, language, phone } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'username, email, and password are required.' });
     }
 
     // Ensure the email is unique before creating the account
-    const existing = await getUserByEmailDb(email);
+    const existing = await getUserByIdentifierDb(email);
     if (existing) {
       return res.status(409).json({ error: 'Email is already registered.' });
     }
@@ -53,11 +88,13 @@ export const registerUser = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const normalizedUserType = userType || 'wellness';
     const normalizedLanguage = language || 'en';
+    const normalizedPhone = normalizePhone(phone);
 
     const newUserId = await insertUser(
       username,
       email,
       hashedPassword,
+      normalizedPhone,
       normalizedUserType,
       normalizedLanguage
     );
@@ -68,6 +105,7 @@ export const registerUser = async (req: Request, res: Response) => {
       id: newUserId,
       username,
       email,
+      phone: normalizedPhone,
       userType: normalizedUserType,
       language: normalizedLanguage,
       token,
@@ -86,7 +124,7 @@ export const registerUser = async (req: Request, res: Response) => {
 export const getUserByEmail = (req: Request, res: Response) => {
   const { email } = req.params;
   Database.db.get(
-    `SELECT id, username, email, user_type, language, created_at FROM users WHERE email = ?`,
+    `SELECT id, username, email, phone, user_type, language, created_at FROM users WHERE email = ?`,
     [email],
     (err, row) => {
       if (err || !row) {
@@ -106,7 +144,7 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = await getUserByEmailDb(email);
+    const user = await getUserByIdentifierDb(email);
     if (!user) {
       // Use same error message for security (don't reveal if email exists)
       return res.status(401).json({ error: 'Invalid credentials.' });
@@ -128,6 +166,7 @@ export const loginUser = async (req: Request, res: Response) => {
       id: user.id,
       username: user.username,
       email: user.email,
+      phone: user.phone || null,
       userType: user.user_type || 'wellness',
       language: user.language || 'en',
       token,
@@ -140,7 +179,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
 export const getAllUsers = (req: Request, res: Response) => {
   Database.db.all(
-    `SELECT id, username, email, user_type, language, created_at FROM users`,
+    `SELECT id, username, email, phone, user_type, language, created_at FROM users`,
     (err, rows) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to fetch users.' });
@@ -152,8 +191,8 @@ export const getAllUsers = (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { username, email, password } = req.body;
-  if (!username && !email && !password) {
+  const { username, email, password, phone } = req.body;
+  if (!username && !email && !password && phone === undefined) {
     return res.status(400).json({ error: 'At least one field is required to update.' });
   }
 
@@ -175,6 +214,10 @@ export const updateUser = async (req: Request, res: Response) => {
   if (hashedPassword) {
     fields.push('password = ?');
     params.push(hashedPassword);
+  }
+  if (phone !== undefined) {
+    fields.push('phone = ?');
+    params.push(normalizePhone(phone));
   }
   params.push(id);
 

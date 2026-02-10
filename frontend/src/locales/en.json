@@ -155,7 +155,8 @@
     "no": "No",
     "unsure": "Unsure",
     "partially": "Partially",
-    "later": "Later"
+    "later": "Later",
+    "done": "Done"
   },
   "auth": {
     "sign_in": "Sign In",
@@ -163,6 +164,7 @@
     "welcome_back": "Welcome Back 🌸",
     "sign_in_continue": "Sign in to continue your health journey",
     "email_address": "Email Address",
+    "email_or_username": "Email or Username",
     "email_placeholder": "your.email@example.com",
     "password": "Password",
     "password_placeholder": "Enter your password",
@@ -198,7 +200,10 @@
     "error_occurred": "An error occurred. Please try again.",
     "data_private_secure": "Your data is private and secure. We prioritize your privacy and confidentiality.",
     "join_hopebloom": "Join HopeBloom 🌸",
-    "create_account_start_journey": "Create your account to start your personalized health journey"
+    "create_account_start_journey": "Create your account to start your personalized health journey",
+    "phone_number": "Phone number (WhatsApp)",
+    "phone_placeholder": "e.g. +2010xxxxxxxxx",
+    "phone_hint": "Optional. Used only for reminder notifications via WhatsApp."
   },
   "questionnaire": {
     "health_profile": "Health Profile",
@@ -281,7 +286,10 @@
       "remaining": "Remaining",
       "target": "Target",
       "goal_reached": "Daily goal reached!",
+      "cup": "cup",
       "cups": "cups",
+      "cal_short": "cal",
+      "protein_short": "g protein",
       "breakfast": "🌅 Breakfast",
       "lunch": "☀️ Lunch",
       "dinner": "🌙 Dinner",
@@ -345,6 +353,9 @@
     "avg_cycle": "Average Cycle:",
     "last_period": "Last Period:",
     "next_expected": "Next Expected:",
+    "period_end_title": "Last day of your period",
+    "period_end_desc": "Mark the last day to trigger a self-exam reminder starting the next day.",
+    "mark_period_end": "Confirm period ended",
     "set_reminder": "Set Reminder",
     "self_check_guide_title": "Breast Self-Examination Guide",
     "when_to_perform": "When to Perform:",
@@ -470,9 +481,17 @@
       "every_2_hours": "Every 2 hours"
     },
     "defaults": {
+      "mandatory_self_exam": {
+        "title": "Self-Examination (Mandatory)",
+        "desc": "Please complete your self-breast exam to continue"
+      },
       "monthly_self_exam": {
         "title": "Monthly Self-Examination",
         "desc": "Time for your monthly breast self-check"
+      },
+      "bahya_annual_screening": {
+        "title": "Bahya Annual Screening",
+        "desc": "Annual breast screening reminder. Tap to book via WhatsApp."
       },
       "doctor_appointment": {
         "title": "Doctor Appointment",
@@ -500,6 +519,33 @@
     "toast_deleted_desc": "\"{{title}}\" has been removed",
     "empty_title": "No reminders yet",
     "empty_desc": "Create your first reminder to stay on track",
-    "empty_cta": "Add Your First Reminder"
+    "empty_cta": "Add Your First Reminder",
+    "book_bahya": "Book on WhatsApp"
+  }
+  ,
+  "exercise_videos": {
+    "title": "Exercise Videos",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "go_assessment": "Go to Self-Assessment",
+    "empty": "Add videos to the assets folder to display here",
+    "notes_title": "Movement Description / Notes",
+    "notes_ph": "Write movement description or your notes here",
+    "list_title": "Video List",
+    "repeat": "Repeat"
+  },
+  "reminder_action": {
+    "water_title": "Confirm Water Intake",
+    "water_desc": "Drink a glass of water now, then press Done",
+    "med_title": "Confirm Medication",
+    "med_desc": "Take the prescribed dose, then press Done",
+    "done_toast": "Completion recorded",
+    "error": "Failed to record"
+  }
+  ,
+  "self_assessment": {
+    "title": "Self-Assessment (Rasa-only responses)",
+    "ph": "Write your question here (answered by Rasa only)",
+    "go_videos": "Go to Exercise Videos"
   }
 }

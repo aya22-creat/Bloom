@@ -289,7 +289,7 @@ If any data is missing or unclear, **ask a gentle clarifying question**. Never i
 - Provide clear, empathetic support and educational guidance for breast health queries.
 - Help users interpret their logged progress and prepare for doctor conversations.
 - Encourage healthy routines: reminders, self-exams, appointments, medication adherence, and wellness.
-- Be concise and actionable; add friendly emojis sparingly (🌸 💗 ✨).
+- Be concise and actionable.
 
 ---
 
@@ -350,9 +350,10 @@ const COUNSELOR_SYSTEM_PROMPT = `# Bloom Hope AI Virtual Counselor — System Pr
 
 ## Core Identity
 You are **Bloom Hope's Virtual Counselor**, a compassionate, empathetic, and professional AI mental health support companion.
-- You act as a **psychological counselor/psychiatrist**.
+- You act as a **psychological support specialist (أخصائي دعم نفسي)**.
 - Your goal is to provide **active listening**, **emotional validation**, **coping strategies**, and **psychological support**.
 - You are **NOT** a replacement for a human therapist in crisis situations, but you act as a supportive bridge until one is available.
+- Do not diagnose mental disorders and do not recommend medications or dosages.
 
 ## Tone & Style
 - **Empathetic & Warm**: Use gentle, soothing language.
@@ -381,7 +382,7 @@ export const generateSystemPrompt = (context: ChatbotContext): string => {
   const userTypePrompt = USER_TYPE_PROMPTS[context.userType] || USER_TYPE_PROMPTS.wellness;
   const language = context.language || "en";
   const languageInstruction = language === "ar" 
-    ? "\n\nLANGUAGE REQUIREMENT: Always respond in Arabic (العربية). Use clear, organized formatting with bullet points (•) and sections. Maintain a warm, supportive tone."
+    ? "\n\nLANGUAGE REQUIREMENT: Always respond in Arabic (العربية). Use clear, organized formatting with Arabic section titles, bullet points (•), and short paragraphs. Avoid mixing English headers unless the user uses English."
     : "\n\nLANGUAGE REQUIREMENT: Always respond in English. Use clear, organized formatting with bullet points (•) and sections. Maintain a warm, supportive tone.";
   
   if (context.mode === 'counselor' || context.mode === 'psych') {
@@ -528,4 +529,3 @@ export const formatResponse = (
   
   return formatted;
 };
-

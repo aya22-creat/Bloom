@@ -16,7 +16,7 @@ router.get('/:userId', (req, res) => {
       }
       const parsed = rows.map((r) => ({
         ...r,
-        enabled: r.enabled === 1,
+        enabled: r.enabled === 1 || r.enabled === true,
         days: r.days ? JSON.parse(r.days) : undefined,
       }));
       res.json(parsed);
@@ -26,33 +26,61 @@ router.get('/:userId', (req, res) => {
 
 // Create reminder
 router.post('/', (req, res) => {
-  const reminder = req.body as Reminder;
-  if (!reminder.user_id || !reminder.title) {
-    return res.status(400).json({ error: 'user_id and title are required.' });
+  const raw = (req.body || {}) as any;
+
+  const reminder: Reminder = {
+    user_id: Number(raw.user_id ?? raw.userId),
+    title: String(raw.title || ''),
+    description: raw.description ? String(raw.description) : undefined,
+    type: raw.type,
+    time: raw.time ? String(raw.time) : undefined,
+    date: raw.date ? String(raw.date) : undefined,
+    days: Array.isArray(raw.days) ? raw.days : undefined,
+    interval: raw.interval ? String(raw.interval) : undefined,
+    enabled:
+      raw.enabled !== undefined
+        ? (raw.enabled === true || raw.enabled === 1 ? 1 : 0)
+        : raw.is_active !== undefined
+          ? (raw.is_active === true || raw.is_active === 1 ? 1 : 0)
+          : 1,
+    mandatory: raw.mandatory === true || raw.mandatory === 1 ? 1 : 0,
+  };
+
+  if (!reminder.user_id || !reminder.title || !reminder.type) {
+    return res.status(400).json({ error: 'user_id, title, and type are required.' });
   }
-  
-  // Build reminder_time from time and date if provided
-  let reminderTime = reminder.reminder_time || null;
-  if (!reminderTime && reminder.time && reminder.date) {
-    reminderTime = `${reminder.date} ${reminder.time}`;
-  } else if (!reminderTime && reminder.time) {
-    reminderTime = reminder.time;
-  }
-  
+
   Database.db.run(
-    `INSERT INTO reminders (user_id, title, description, reminder_time)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO reminders (user_id, title, description, type, time, date, days, interval, enabled, mandatory)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       reminder.user_id,
       reminder.title,
       reminder.description || null,
-      reminderTime,
+      reminder.type,
+      reminder.time || null,
+      reminder.date || null,
+      reminder.days ? JSON.stringify(reminder.days) : null,
+      reminder.interval || null,
+      reminder.enabled ? 1 : 0,
+      reminder.mandatory ? 1 : 0,
     ],
     function (this: RunResult, err) {
       if (err) {
         return res.status(400).json({ error: 'Failed to create reminder.' });
       }
-      res.status(201).json({ id: this.lastID });
+      const insertedId = Number(this?.lastID || 0);
+      if (insertedId && insertedId > 0) {
+        return res.status(201).json({ id: insertedId });
+      }
+      Database.db.get(
+        `SELECT id FROM reminders WHERE user_id = ? ORDER BY created_at DESC`,
+        [reminder.user_id],
+        (e2, row: any) => {
+          if (e2 || !row?.id) return res.status(201).json({ id: 0 });
+          return res.status(201).json({ id: Number(row.id) });
+        }
+      );
     }
   );
 });
@@ -77,6 +105,7 @@ router.put('/:id', (req, res) => {
   if (reminder.days !== undefined) setter('days', JSON.stringify(reminder.days));
   if (reminder.interval !== undefined) setter('interval', reminder.interval);
   if (reminder.enabled !== undefined) setter('enabled', reminder.enabled ? 1 : 0);
+  if ((reminder as any).mandatory !== undefined) setter('mandatory', (reminder as any).mandatory ? 1 : 0);
 
   params.push(id);
 
@@ -107,3 +136,23 @@ router.delete('/:id', (req, res) => {
 });
 
 export default router;
+// Record completion of a reminder action (water or medication)
+router.post('/complete', (req, res) => {
+  const raw = (req.body || {}) as any;
+  const userId = Number(raw.user_id ?? raw.userId);
+  const type = String(raw.type || '').toLowerCase();
+  if (!userId || !type || (type !== 'water' && type !== 'medication')) {
+    return res.status(400).json({ error: 'user_id and type (water|medication) are required.' });
+  }
+
+  Database.db.run(
+    `INSERT INTO reminder_completions (user_id, type, completed_at) VALUES (?, ?, CURRENT_TIMESTAMP)`,
+    [userId, type],
+    function (this: RunResult, err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to record completion.' });
+      }
+      res.status(201).json({ id: Number(this.lastID || 0), success: true });
+    }
+  );
+});

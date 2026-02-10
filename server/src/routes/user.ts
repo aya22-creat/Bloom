@@ -39,13 +39,6 @@ const validateLogin = (req: Request, res: Response, next: NextFunction) => {
     });
   }
   
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Valid email format is required' 
-    });
-  }
-  
   next();
 };
 

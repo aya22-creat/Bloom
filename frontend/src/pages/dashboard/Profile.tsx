@@ -101,13 +101,16 @@ const Profile = () => {
       // 1. Update Profile API
       await apiProfile.upsert({
         userId: user.id,
-        firstName: formData.name.split(' ')[0], // Simple split
+        firstName: formData.name.split(' ')[0],
         lastName: formData.name.split(' ').slice(1).join(' '),
-        dateOfBirth: "", // Not in form yet
-        gender: "Female", // Default for target audience
+        dateOfBirth: "",
+        gender: "Female",
         country: "",
-        // Add other fields to payload if API supports them
-        // Note: The backend profile endpoint might need expansion to support all fields
+        age: formData.age ? parseInt(formData.age) : undefined,
+        phone: formData.phone,
+        address: formData.address,
+        emergencyContact: formData.emergencyContact,
+        medicalHistory: formData.medicalHistory,
       });
       
       // 2. Update Local/Auth User (legacy)

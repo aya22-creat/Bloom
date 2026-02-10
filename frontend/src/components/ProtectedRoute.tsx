@@ -1,6 +1,8 @@
-import { ReactNode, useEffect } from 'react';
-import { Navigate, useParams, useNavigate } from 'react-router-dom';
+import { ReactNode, useEffect, useState } from 'react';
+import { Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import ReminderNotifier from '@/components/ReminderNotifier';
+import { apiSelfExams } from '@/lib/api';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -11,6 +13,13 @@ export const ProtectedRoute = ({ children, allowedUserTypes }: ProtectedRoutePro
   const { isAuthenticated, user } = useAuth();
   const { userType } = useParams<{ userType?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const REQUIRE_LOGIN_ALWAYS = String(import.meta.env.VITE_REQUIRE_LOGIN_ALWAYS || '').toLowerCase() === 'true';
+  const sessionAuth = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('hopebloom_auth') : null;
+  const [mandatoryCheck, setMandatoryCheck] = useState<{ loading: boolean; required: boolean }>({
+    loading: true,
+    required: false,
+  });
 
   useEffect(() => {
     // Validate userType parameter if present
@@ -29,8 +38,28 @@ export const ProtectedRoute = ({ children, allowedUserTypes }: ProtectedRoutePro
     }
   }, [userType, user, navigate]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!isAuthenticated || !user?.id) return;
+      try {
+        const status = await apiSelfExams.mandatoryStatus(user.id);
+        if (cancelled) return;
+        setMandatoryCheck({ loading: false, required: Boolean((status as any)?.required) });
+      } catch {
+        if (cancelled) return;
+        setMandatoryCheck({ loading: false, required: false });
+      }
+    };
+    setMandatoryCheck((s) => ({ ...s, loading: true }));
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id, location.pathname]);
+
   // Check authentication
-  if (!isAuthenticated) {
+  if (!isAuthenticated || (REQUIRE_LOGIN_ALWAYS && !sessionAuth)) {
     return <Navigate to="/login" replace state={{ from: window.location.pathname }} />;
   }
 
@@ -46,5 +75,18 @@ export const ProtectedRoute = ({ children, allowedUserTypes }: ProtectedRoutePro
     return <Navigate to={`/dashboard/${user.userType}`} replace />;
   }
 
-  return <>{children}</>;
+  if (!mandatoryCheck.loading && mandatoryCheck.required) {
+    const targetPath = `/health-tracker/${user.userType}`;
+    const isOnTarget = location.pathname === targetPath;
+    if (!isOnTarget) {
+      return <Navigate to={`${targetPath}?tab=selfcheck`} replace />;
+    }
+  }
+
+  return (
+    <>
+      <ReminderNotifier />
+      {children}
+    </>
+  );
 };

@@ -23,12 +23,13 @@ const Login = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (disabled when REQUIRE_LOGIN_ALWAYS)
+  const REQUIRE_LOGIN_ALWAYS = String(import.meta.env.VITE_REQUIRE_LOGIN_ALWAYS || '').toLowerCase() === 'true';
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!REQUIRE_LOGIN_ALWAYS && isAuthenticated && user) {
       navigate(`/dashboard/${user.userType}`, { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, REQUIRE_LOGIN_ALWAYS]);
 
  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -111,10 +112,10 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
             <div>
-              <Label htmlFor="email">{t('auth.email_address')}</Label>
+              <Label htmlFor="email">{t('auth.email_or_username')}</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 placeholder={t('auth.email_placeholder')}
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -167,4 +168,3 @@ const Login = () => {
 };
 
 export default Login;
-

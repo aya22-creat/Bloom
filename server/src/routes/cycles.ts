@@ -6,7 +6,7 @@ const router = Router();
 
 // Validation middleware
 const validateUserId = (req: Request, res: Response, next: NextFunction) => {
-  const userId = parseInt(req.params.userId || req.body.user_id);
+  const userId = parseInt(req.params.userId || req.body.user_id || req.body.userId);
   if (isNaN(userId) || userId <= 0) {
     return res.status(400).json({ 
       success: false, 
@@ -17,7 +17,8 @@ const validateUserId = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const validateCycleData = (req: Request, res: Response, next: NextFunction) => {
-  const { user_id, start_date } = req.body;
+  const user_id = req.body.user_id ?? req.body.userId;
+  const start_date = req.body.start_date ?? req.body.startDate;
   
   if (!user_id || !start_date) {
     return res.status(400).json({ 
@@ -77,13 +78,20 @@ router.get('/:userId', validateUserId, (req, res) => {
 });
 
 router.post('/', validateCycleData, (req, res) => {
-  const c = req.body as Cycle;
+  const raw = req.body || {};
+  const c: Cycle = {
+    user_id: Number(raw.user_id ?? raw.userId),
+    start_date: String(raw.start_date ?? raw.startDate),
+    end_date: raw.end_date ?? raw.endDate ?? undefined,
+    cycle_length: raw.cycle_length ?? raw.cycleLength ?? undefined,
+    notes: raw.notes ?? undefined,
+  };
   
   try {
     Database.db.run(
-      `INSERT INTO cycles (user_id, start_date, end_date, notes)
-       VALUES (?, ?, ?, ?)`,
-      [c.user_id, c.start_date, c.end_date || null, c.notes || null],
+      `INSERT INTO cycles (user_id, start_date, end_date, cycle_length, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [c.user_id, c.start_date, c.end_date || null, c.cycle_length ?? null, c.notes || null],
       function (this: RunResult, err) {
         if (err) {
           console.error('[Cycles POST Error]', err);
@@ -93,11 +101,18 @@ router.post('/', validateCycleData, (req, res) => {
             details: err.message 
           });
         }
-        res.status(201).json({ 
-          success: true, 
-          data: { id: this.lastID },
-          message: 'Cycle created successfully' 
-        });
+        const insertedId = Number(this?.lastID || 0);
+        if (insertedId && insertedId > 0) {
+          return res.status(201).json({ success: true, data: { id: insertedId }, message: 'Cycle created successfully' });
+        }
+        Database.db.get(
+          `SELECT id FROM cycles WHERE user_id = ? ORDER BY start_date DESC`,
+          [c.user_id],
+          (e2, row: any) => {
+            const id = e2 || !row?.id ? 0 : Number(row.id);
+            return res.status(201).json({ success: true, data: { id }, message: 'Cycle created successfully' });
+          }
+        );
       }
     );
   } catch (error: any) {
@@ -111,7 +126,13 @@ router.post('/', validateCycleData, (req, res) => {
 
 router.put('/:id', validateId, (req, res) => {
   const { id } = req.params;
-  const c = req.body as Partial<Cycle>;
+  const raw = req.body || {};
+  const c: Partial<Cycle> = {
+    start_date: raw.start_date ?? raw.startDate ?? undefined,
+    end_date: raw.end_date ?? raw.endDate ?? undefined,
+    cycle_length: raw.cycle_length ?? raw.cycleLength ?? undefined,
+    notes: raw.notes ?? undefined,
+  };
   
   const fields: string[] = [];
   const params: any[] = [];
@@ -123,6 +144,7 @@ router.put('/:id', validateId, (req, res) => {
   
   if (c.start_date !== undefined) setter('start_date', c.start_date);
   if (c.end_date !== undefined) setter('end_date', c.end_date);
+  if (c.cycle_length !== undefined) setter('cycle_length', c.cycle_length);
   if (c.notes !== undefined) setter('notes', c.notes);
   
   if (fields.length === 0) {
@@ -155,6 +177,32 @@ router.put('/:id', validateId, (req, res) => {
           });
         }
         
+        if (c.end_date) {
+          const end = new Date(String(c.end_date));
+          if (!Number.isNaN(end.getTime())) {
+            const next = new Date(end.getTime());
+            next.setDate(next.getDate() + 1);
+            const nextDay = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+            const time = '09:00';
+            const title = '🩺 Self Breast Exam (Mandatory)';
+            const description = 'Reminder: Please perform your self-breast examination today.';
+            Database.db.all(
+              `SELECT id FROM reminders WHERE user_id = (SELECT user_id FROM cycles WHERE id = ?) AND type = 'checkup' AND date = ? AND mandatory = 1`,
+              [id, nextDay],
+              (checkErr, rows) => {
+                if (!checkErr && (!rows || rows.length === 0)) {
+                  Database.db.run(
+                    `INSERT INTO reminders (user_id, title, description, type, time, date, enabled, mandatory)
+                     SELECT user_id, ?, ?, 'checkup', ?, ?, 1, 1 FROM cycles WHERE id = ?`,
+                    [title, description, time, nextDay, id],
+                    () => {}
+                  );
+                }
+              }
+            );
+          }
+        }
+
         res.json({ 
           success: true, 
           message: 'Cycle updated successfully' 

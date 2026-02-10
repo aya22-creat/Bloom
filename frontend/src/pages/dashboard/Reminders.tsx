@@ -32,7 +32,7 @@ type ReminderInterval = "every_2_hours";
 interface Reminder {
   id: number;
   type: ReminderType;
-  contentKey: "monthly_self_exam" | "doctor_appointment" | "drink_water" | "daily_exercise";
+  contentKey: "monthly_self_exam" | "mandatory_self_exam" | "doctor_appointment" | "bahya_annual_screening" | "drink_water" | "daily_exercise";
   title: string;
   time: string;
   enabled: boolean;
@@ -47,6 +47,7 @@ const Reminders = () => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const isRTL = i18n.dir() === "rtl";
+  const bahyaPhone = (import.meta as any).env?.VITE_BAHYA_PHONE_NUMBER as string | undefined;
 
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,17 +65,36 @@ const Reminders = () => {
         // Transform backend data to frontend format if necessary
         // Assuming backend returns roughly matching shape but using `title` instead of `contentKey` sometimes
         // For now, we map safely
-        const mapped: Reminder[] = data.map((r: any) => ({
+        const mapped: Reminder[] = data.map((r: any) => {
+          const type = r.type as ReminderType;
+          const isBahya = typeof r.title === 'string' && (r.title.includes('Bahya') || r.title.includes('بهية') || r.title.includes('بهيا'));
+          const isMandatory = Boolean(r.mandatory);
+          const contentKey =
+            r.contentKey ||
+            (isBahya
+              ? 'bahya_annual_screening'
+              : isMandatory
+                ? 'mandatory_self_exam'
+                : type === 'water'
+                  ? 'drink_water'
+                  : type === 'appointment'
+                    ? 'doctor_appointment'
+                    : type === 'checkup'
+                      ? 'monthly_self_exam'
+                      : 'daily_exercise');
+
+          return {
             id: r.id,
-            type: r.type,
-            contentKey: r.contentKey || (r.type === 'water' ? 'drink_water' : r.type === 'checkup' ? 'monthly_self_exam' : 'daily_exercise'), // fallback
+            type,
+            contentKey,
             title: r.title,
             time: r.time,
-            enabled: r.is_active,
+            enabled: Boolean(r.enabled),
             date: r.date,
-            days: r.days ? JSON.parse(r.days) : undefined,
-            interval: r.interval
-        }));
+            days: Array.isArray(r.days) ? r.days : undefined,
+            interval: r.interval,
+          };
+        });
         setReminders(mapped);
       } catch (err) {
         console.error("Failed to fetch reminders", err);
@@ -96,7 +116,7 @@ const Reminders = () => {
     setReminders(reminders.map((r) => (r.id === id ? { ...r, enabled: newValue } : r)));
     
     try {
-        await apiReminders.update(id, { is_active: newValue });
+        await apiReminders.update(id, { enabled: newValue });
         
         const title = t(`reminders.defaults.${target.contentKey}.title`) || target.title;
         toast({
@@ -138,13 +158,13 @@ const Reminders = () => {
       if (!user) return;
       
       const newReminder = {
-          userId: user.id,
+          user_id: user.id,
           type: "checkup",
           title: "Monthly Self Exam",
           contentKey: "monthly_self_exam",
           time: "09:00",
           days: JSON.stringify(["monday"]),
-          is_active: true
+          enabled: true
       };
       
       try {
@@ -283,6 +303,20 @@ const Reminders = () => {
                             </Button>
                           </div>
                         </div>
+                        {reminder.contentKey === "bahya_annual_screening" && bahyaPhone && (
+                          <div className={cn("flex mb-2", isRTL ? "justify-start" : "justify-end")}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const digits = String(bahyaPhone).replace(/[^\d]/g, "");
+                                window.open(`https://wa.me/${digits}`, "_blank");
+                              }}
+                            >
+                              {t("reminders.book_bahya")}
+                            </Button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />

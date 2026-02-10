@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getCurrentUser } from "@/lib/database";
-import { apiCycles, apiMedications, apiSelfExams, apiSymptoms } from "@/lib/api";
+import { apiCycles, apiMedications, apiSelfExams, apiSymptoms, apiReminders } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { format, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,7 @@ interface SelfExamRecord {
 const HealthTracker = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -74,6 +75,59 @@ const HealthTracker = () => {
   const nextPeriodDate = date ? addDays(date, cycleLength) : undefined;
   const nextSelfCheckDate = date ? addDays(date, 7) : undefined;
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"cycle" | "selfcheck" | "medications" | "symptoms">("cycle");
+  const [mandatorySelfCheck, setMandatorySelfCheck] = useState(false);
+  const [lastCycleId, setLastCycleId] = useState<number | null>(null);
+  const [cycleEndDate, setCycleEndDate] = useState<Date | undefined>(undefined);
+  const [recommendedSelfCheckDate, setRecommendedSelfCheckDate] = useState<Date | undefined>(undefined);
+  const [todaySymptoms, setTodaySymptoms] = useState<Record<string, string>>({});
+  const symptomKeys = ['fatigue','nausea','pain','mood_changes','sleep_issues'];
+  const severityValues = ['none','mild','moderate','severe'];
+  const setSeverity = (key: string, val: string) => setTodaySymptoms((s) => ({ ...s, [key]: val }));
+  const saveTodaySymptoms = async () => {
+    const user = getCurrentUser();
+    if (!user?.id) return;
+    try {
+      await apiSymptoms.create({ user_id: user.id, date: new Date().toISOString().split('T')[0], items: todaySymptoms });
+      toast({ title: t('common.saved'), description: t('health_tracker.symptoms.saved_today') });
+    } catch {
+      toast({ title: t('common.error'), description: t('health_tracker.symptoms.save_failed'), variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+    if (tab === "cycle" || tab === "selfcheck" || tab === "medications" || tab === "symptoms") {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?.id) return;
+    apiSelfExams
+      .mandatoryStatus(user.id)
+      .then((s: any) => {
+        const required = Boolean(s?.required);
+        setMandatorySelfCheck(required);
+        if (required) setActiveTab("selfcheck");
+      })
+      .catch(() => setMandatorySelfCheck(false));
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const insights: any = await (await import('@/lib/api')).apiCycleInsights.predict({ firstDay: date ? format(date, 'yyyy-MM-dd') : undefined, cycleLength });
+        const best = insights?.bestSelfExamDay as string | undefined;
+        if (best) setRecommendedSelfCheckDate(new Date(best));
+        else setRecommendedSelfCheckDate(nextSelfCheckDate || undefined);
+      } catch {
+        setRecommendedSelfCheckDate(nextSelfCheckDate || undefined);
+      }
+    };
+    run();
+  }, [date, cycleLength]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,43 +136,57 @@ const HealthTracker = () => {
       setLoading(true);
 
       try {
-        // Fetch Cycle Data
-        const cycles = await apiCycles.list(user.id);
-        if (cycles && cycles.length > 0) {
-           // Assume last cycle record has the config
-           // This is a simplification; in a real app we'd query a specific settings endpoint or sort by date
-           // For now, let's just stick to the cycle length from the latest record if available
-           // or keep the default
-        }
+        let modulesLoaded = 0;
+        // Fetch Cycle Data (tolerant to shapes)
+        try {
+          const cyclesRes: any = await apiCycles.list(user.id);
+          const cycles: any[] = Array.isArray(cyclesRes) ? cyclesRes : (cyclesRes?.data || []);
+          if (cycles.length > 0) {
+            const sorted = [...cycles].sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+            const latest = sorted[0];
+            setLastCycleId(Number(latest.id) || null);
+            if (latest.cycle_length) setCycleLength(Number(latest.cycle_length));
+            setCycleEndDate(latest.end_date ? new Date(String(latest.end_date)) : undefined);
+          }
+          modulesLoaded++;
+        } catch {}
 
         // Fetch Medications
-        const meds = await apiMedications.list(user.id);
-        if (meds) {
-          // Map backend structure to frontend interface if needed
-          // Assuming backend returns matching fields for now, but safer to map:
-          const mappedMeds = meds.map((m: any) => ({
-            id: m.id,
-            name: m.name,
-            dosage: m.dosage,
-            frequency: m.frequency,
-            time: m.time_of_day || "",
-            notes: m.instructions || ""
-          }));
-          setMedications(mappedMeds);
-        }
+        try {
+          const meds = await apiMedications.list(user.id);
+          if (Array.isArray(meds) && meds.length > 0) {
+            const mappedMeds = meds.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              dosage: m.dosage,
+              frequency: m.frequency,
+              time: m.time_of_day || "",
+              notes: m.instructions || ""
+            }));
+            setMedications(mappedMeds);
+          }
+          modulesLoaded++;
+        } catch {}
 
         // Fetch Self Exams
-        const exams = await apiSelfExams.list(user.id);
-        if (exams) {
-          const mappedExams = exams.map((e: any) => ({
-            id: e.id,
-            date: e.exam_date,
-            time: e.exam_time || "",
-            findings: e.findings,
-            notes: e.notes || "",
-            nextExamDate: e.next_exam_date || ""
-          }));
-          setExamRecords(mappedExams);
+        try {
+          const exams = await apiSelfExams.list(user.id);
+          if (Array.isArray(exams) && exams.length > 0) {
+            const mappedExams = exams.map((e: any) => ({
+              id: e.id,
+              date: e.exam_date,
+              time: e.exam_time || "",
+              findings: e.findings,
+              notes: e.notes || "",
+              nextExamDate: e.next_exam_date || ""
+            }));
+            setExamRecords(mappedExams);
+          }
+          modulesLoaded++;
+        } catch {}
+
+        if (modulesLoaded === 0) {
+          throw new Error('all_modules_failed');
         }
       } catch (error) {
         console.error("Failed to load health data", error);
@@ -137,17 +205,87 @@ const HealthTracker = () => {
 
   const handleSaveCycle = async () => {
     const user = getCurrentUser();
-    if (!user || !date) return;
+    const userIdNum = user ? Number(user.id) : NaN;
+    if (!user || Number.isNaN(userIdNum) || !date) {
+      toast({ title: t('common.error') || 'Error', description: 'Please select the first day and ensure you are logged in.', variant: 'destructive' });
+      return;
+    }
     try {
-      await apiCycles.create({
-        userId: user.id,
-        startDate: format(date, 'yyyy-MM-dd'),
-        cycleLength: cycleLength,
-        notes: "Updated from Health Tracker"
-      });
+      let newId = lastCycleId;
+      if (!newId) {
+        const created: any = await apiCycles.create({
+          userId: userIdNum,
+          user_id: userIdNum,
+          startDate: format(date, 'yyyy-MM-dd'),
+          start_date: format(date, 'yyyy-MM-dd'),
+          cycleLength: cycleLength,
+          cycle_length: cycleLength,
+          notes: "Created from Set Reminder"
+        });
+        newId = Number(created?.data?.id || created?.id || 0) || null;
+        if (newId) setLastCycleId(newId);
+      } else {
+        await apiCycles.update(newId, { startDate: format(date, 'yyyy-MM-dd'), start_date: format(date, 'yyyy-MM-dd'), cycleLength, cycle_length: cycleLength });
+      }
+
+      // Create recommended self-exam reminder on Day 7 from start
+      const start = new Date(format(date, 'yyyy-MM-dd'));
+      const target = new Date(start.getTime());
+      target.setDate(target.getDate() + 7);
+      const dateStr = target.toISOString().split('T')[0];
+      const timeStr = '10:00';
+      try {
+        await apiReminders.create({ user_id: userIdNum, type: 'checkup', title: 'Self Breast Exam (Recommended)', time: timeStr, date: dateStr, enabled: true, mandatory: 0 });
+      } catch {}
+
       toast({ title: t('common.saved'), description: t('health_tracker.cycle_saved') });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to save cycle", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to save cycle", variant: "destructive" });
+    }
+  };
+
+  const handleMarkCycleEnd = async () => {
+    const user = getCurrentUser();
+    const userIdNum = user ? Number(user.id) : NaN;
+    if (!user || Number.isNaN(userIdNum) || !cycleEndDate) {
+      toast({ title: t('common.error') || 'Error', description: 'Please select the last day and ensure you are logged in.', variant: 'destructive' });
+      return;
+    }
+    try {
+      let id = lastCycleId;
+      if (!id) {
+        const startBase = date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+        const created: any = await apiCycles.create({
+          userId: userIdNum,
+          user_id: userIdNum,
+          startDate: startBase,
+          start_date: startBase,
+          cycleLength: cycleLength,
+          cycle_length: cycleLength,
+          notes: 'Auto-created prior to marking end date'
+        });
+        id = Number(created?.data?.id || created?.id || 0) || null;
+        if (id) setLastCycleId(id);
+      }
+      if (!id) throw new Error('No cycle record available');
+      await apiCycles.update(id, { endDate: format(cycleEndDate, 'yyyy-MM-dd'), end_date: format(cycleEndDate, 'yyyy-MM-dd') });
+      const status: any = await apiSelfExams.mandatoryStatus(user.id);
+      const required = Boolean(status?.required);
+      setMandatorySelfCheck(required);
+      if (required) setActiveTab("selfcheck");
+      try {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 1);
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        await apiReminders.create({ user_id: userIdNum, type: 'checkup', title: 'Self Breast Exam (Mandatory)', time: timeStr, date: dateStr, enabled: true, mandatory: 1 });
+      } catch {}
+      if (required && userType) {
+        navigate(`/exercise-videos/${userType}`);
+      }
+      toast({ title: t('common.saved'), description: t('health_tracker.cycle_saved') });
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.message || "Failed to update cycle end date", variant: "destructive" });
     }
   };
 
@@ -225,6 +363,13 @@ const HealthTracker = () => {
                 findings: "",
                 notes: "",
             });
+            try {
+              const status: any = await apiSelfExams.mandatoryStatus(user.id);
+              const required = Boolean(status?.required);
+              setMandatorySelfCheck(required);
+            } catch {
+              setMandatorySelfCheck(false);
+            }
             toast({ title: t('common.saved'), description: t('health_tracker.exam_record.saved') });
         } catch (e) {
             toast({ title: "Error", description: "Failed to save exam record", variant: "destructive" });
@@ -327,12 +472,19 @@ const HealthTracker = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs defaultValue="cycle" className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            if (mandatorySelfCheck && v !== "selfcheck") return;
+            setActiveTab(v as any);
+          }}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="cycle">{t('health_tracker.tabs.cycle')}</TabsTrigger>
+            <TabsTrigger value="cycle" disabled={mandatorySelfCheck}>{t('health_tracker.tabs.cycle')}</TabsTrigger>
             <TabsTrigger value="selfcheck">{t('health_tracker.tabs.selfcheck')}</TabsTrigger>
-            <TabsTrigger value="medications">{t('health_tracker.tabs.medications')}</TabsTrigger>
-            <TabsTrigger value="symptoms">{t('health_tracker.tabs.symptoms')}</TabsTrigger>
+            <TabsTrigger value="medications" disabled={mandatorySelfCheck}>{t('health_tracker.tabs.medications')}</TabsTrigger>
+            <TabsTrigger value="symptoms" disabled={mandatorySelfCheck}>{t('health_tracker.tabs.symptoms')}</TabsTrigger>
           </TabsList>
 
           {/* Menstrual Cycle Tab */}
@@ -353,7 +505,31 @@ const HealthTracker = () => {
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
+                    onSelect={async (d) => {
+                      setDate(d);
+                      const user = getCurrentUser();
+                      if (!user || !d) return;
+                      if (!lastCycleId) {
+                        try {
+                          const created: any = await apiCycles.create({
+                            userId: user.id,
+                            user_id: user.id,
+                            startDate: format(d, 'yyyy-MM-dd'),
+                            start_date: format(d, 'yyyy-MM-dd'),
+                            cycleLength: cycleLength,
+                            cycle_length: cycleLength,
+                            notes: 'Created from cycle start selection'
+                          });
+                          const newId = Number(created?.data?.id || created?.id || 0);
+                          if (newId) {
+                            setLastCycleId(newId);
+                            toast({ title: t('common.saved'), description: t('health_tracker.cycle_saved') });
+                          }
+                        } catch (e) {
+                          // Ignore but keep selection
+                        }
+                      }
+                    }}
                     className="rounded-lg border"
                   />
                 </div>
@@ -365,7 +541,7 @@ const HealthTracker = () => {
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {t('health_tracker.recommended_date')} <strong className="text-foreground">
-                        {nextSelfCheckDate ? format(nextSelfCheckDate, "MMMM d, yyyy") : "Select a date"}
+                        {recommendedSelfCheckDate ? format(recommendedSelfCheckDate, "MMMM d, yyyy") : "Select a date"}
                       </strong>
                     </p>
                   </div>
@@ -390,6 +566,28 @@ const HealthTracker = () => {
                       <p><strong>{t('health_tracker.last_period')}</strong> {date ? format(date, "MMMM d, yyyy") : "Select a date"}</p>
                       <p><strong>{t('health_tracker.next_expected')}</strong> {nextPeriodDate ? format(nextPeriodDate, "MMMM d, yyyy") : "-"}</p>
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarIcon className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-semibold text-foreground">{t('health_tracker.period_end_title')}</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">{t('health_tracker.period_end_desc')}</p>
+                    <Calendar
+                      mode="single"
+                      selected={cycleEndDate}
+                      onSelect={setCycleEndDate}
+                      className="rounded-lg border bg-white"
+                    />
+                    <Button
+                      className="mt-3 w-full"
+                      variant="outline"
+                      disabled={!lastCycleId || !cycleEndDate}
+                      onClick={handleMarkCycleEnd}
+                    >
+                      {t('health_tracker.mark_period_end')}
+                    </Button>
                   </div>
 
                   <Button className="gradient-rose text-white w-full" onClick={handleSaveCycle}>
@@ -461,7 +659,10 @@ const HealthTracker = () => {
                 </div>
               </div>
 
-              <Button className="gradient-rose text-white w-full mt-4">
+              <Button 
+                className="gradient-rose text-white w-full mt-4"
+                onClick={() => navigate(`/3d-guide/${userType}`)}
+              >
                 {t('health_tracker.view_3d_guide')}
               </Button>
             </Card>
@@ -732,21 +933,22 @@ const HealthTracker = () => {
                 <div className="p-4 bg-muted/30 rounded-lg">
                   <h3 className="font-semibold text-foreground mb-4">{t('health_tracker.symptoms.record_today')}</h3>
                   <div className="space-y-3">
-                    {[t('health_tracker.symptoms.fatigue'), t('health_tracker.symptoms.nausea'), t('health_tracker.symptoms.pain'), t('health_tracker.symptoms.mood_changes'), t('health_tracker.symptoms.sleep_issues')].map((symptom) => (
-                      <div key={symptom} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                        <span className="text-foreground">{symptom}</span>
+                    {symptomKeys.map((key) => (
+                      <div key={key} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                        <span className="text-foreground">{t(`health_tracker.symptoms.${key}`)}</span>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">{t('health_tracker.symptoms.severity.none')}</Button>
-                          <Button variant="outline" size="sm">{t('health_tracker.symptoms.severity.mild')}</Button>
-                          <Button variant="outline" size="sm">{t('health_tracker.symptoms.severity.moderate')}</Button>
-                          <Button variant="outline" size="sm">{t('health_tracker.symptoms.severity.severe')}</Button>
+                          {severityValues.map((sev) => (
+                            <Button key={sev} variant={todaySymptoms[key] === sev ? 'default' : 'outline'} size="sm" onClick={() => setSeverity(key, sev)}>
+                              {t(`health_tracker.symptoms.severity.${sev}`)}
+                            </Button>
+                          ))}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <Button className="gradient-rose text-white w-full">
+                <Button className="gradient-rose text-white w-full" onClick={saveTodaySymptoms}>
                   {t('health_tracker.symptoms.save_today')}
                 </Button>
               </div>

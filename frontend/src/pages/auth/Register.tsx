@@ -25,9 +25,11 @@ const Register = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { login } = useAuth();
+  const REQUIRE_LOGIN_ALWAYS = String(import.meta.env.VITE_REQUIRE_LOGIN_ALWAYS || '').toLowerCase() === 'true';
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     userType: "" as "fighter" | "survivor" | "wellness" | "",
@@ -99,26 +101,37 @@ const Register = () => {
         username: formData.name,
         email: formData.email,
         password: formData.password,
+        phone: formData.phone || undefined,
         userType: formData.userType,
         language: formData.language,
       });
 
-      // Store user with token
-      login({
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        userType: data.userType || 'wellness',
-        language: data.language || 'en',
-        token: data.token,
-      });
+      if (REQUIRE_LOGIN_ALWAYS) {
+        // Do NOT auto-login; require explicit credentials entry
+        toast({
+          title: t('auth.registration_successful'),
+          description: t('auth.please_sign_in_to_continue'),
+        });
+        navigate('/login');
+      } else {
+        // Store user with token and continue flow
+        login({
+          id: data.id,
+          username: data.username,
+          email: data.email,
+          phone: data.phone ?? null,
+          userType: data.userType || 'wellness',
+          language: data.language || 'en',
+          token: data.token,
+        });
 
-      toast({
-        title: t('auth.registration_successful'),
-        description: t('auth.welcome_hopebloom', { name: formData.name }),
-      });
+        toast({
+          title: t('auth.registration_successful'),
+          description: t('auth.welcome_hopebloom', { name: formData.name }),
+        });
 
-      navigate(`/questionnaire/${formData.userType}`);
+        navigate(`/questionnaire/${formData.userType}`);
+      }
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
@@ -188,6 +201,21 @@ const Register = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
+            </div>
+
+            {/* Phone (WhatsApp) */}
+            <div>
+              <Label htmlFor="phone">{t('auth.phone_number')}</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder={t('auth.phone_placeholder')}
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('auth.phone_hint')}
+              </p>
             </div>
 
             {/* Password */}

@@ -23,6 +23,7 @@
  */
 
 import { GeminiClient } from './gemini.client';
+import { OpenAIClient } from './openai.client';
 import {
   AIRequest,
   AIResponse,
@@ -44,6 +45,7 @@ import { HOPEBLOOM_SYSTEM_PROMPT } from './hopebloom-system-prompt';
 
 export class AIService {
   private geminiClient: GeminiClient | null = null;
+  private openaiClient: OpenAIClient | null = null;
   private static instance: AIService | null = null;
 
   private constructor() {
@@ -70,6 +72,11 @@ export class AIService {
 
     // Validate master prompt is loaded
     console.log(`[AIService] Master prompt loaded (${HOPEBLOOM_SYSTEM_PROMPT.length} chars)`);
+  }
+
+  addOpenAIProvider(openaiClient: OpenAIClient): void {
+    this.openaiClient = openaiClient;
+    console.log(`[AIService] OpenAI fallback enabled: ${openaiClient.getModel()}`);
   }
 
   getStatus(): {
@@ -112,11 +119,8 @@ export class AIService {
   async chat(userId: string, request: AIRequest): Promise<AIResponse> {
     // Validation: Service initialized
     if (!this.geminiClient) {
-      throw this.createError(
-        AIErrorType.AI_SERVICE_UNAVAILABLE,
-        'AI Service not initialized',
-        'AI service is currently unavailable. Please try again later.'
-      );
+      console.warn('[AIService] Gemini client not initialized, using fallback rule engine');
+      return this.generateFallbackResponse(userId, request);
     }
 
     // Validation: Task is valid
@@ -280,10 +284,29 @@ export class AIService {
 
       return response;
     } catch (error) {
-      console.warn('[AI Service] Gemini call failed, falling back to rule-based engine:', error);
-      
-      // FALLBACK SYSTEM: If Gemini fails, use rule-based response
-      // This ensures user always gets a response instead of an error
+      console.warn('[AI Service] Gemini call failed, trying OpenAI fallback:', (error as any)?.message || error);
+      if (this.openaiClient) {
+        try {
+          const messages = (request.context?.history || []).map((m: any) => ({ role: m.role, content: (m.parts?.[0]?.text || '') }));
+          messages.push({ role: 'user', content: taskPrompt });
+          const openai = await this.openaiClient.generateText(systemPrompt, messages as any);
+          const response: AIResponse = {
+            content: openai.content || 'I am here to support you.',
+            task: request.task,
+            metadata: {
+              model: `openai:${this.openaiClient.getModel()}`,
+              timestamp: new Date().toISOString(),
+              tokensUsed: openai?.usage?.total_tokens || 0,
+              processingTime: Date.now() - startTime,
+            },
+            safety: { filtered: false },
+          };
+          return response;
+        } catch (e) {
+          console.warn('[AI Service] OpenAI fallback failed, using rule engine:', (e as any)?.message || e);
+        }
+      }
+      // FALLBACK SYSTEM: rule-based
       return this.generateFallbackResponse(userId, request);
     }
   }
@@ -357,6 +380,43 @@ export class AIService {
                     "",
                     "هل تحبي أساعدك نعرف طريقة الفحص الذاتي الصحيحة؟"
                   ].join("\n");
+              } else if (question.includes("تغذية") || question.includes("أكل") || question.includes("طعام") || question.includes("رجيم") || question.includes("دايت")) {
+                  content = [
+                    "**التغذية السليمة جزء أساسي من صحتك.**",
+                    "إليك بعض النصائح العامة التي قد تساعدك:",
+                    "",
+                    "• ركزي على الخضروات والفواكه الطازجة لغناها بالفيتامينات والمعادن.",
+                    "• تناولي البروتينات الصحية (مثل الدجاج، السمك، البقوليات) لبناء الجسم وترميم الخلايا.",
+                    "• اشربي كميات كافية من الماء (حوالي 8 أكواب يومياً) للحفاظ على رطوبة الجسم.",
+                    "• قللي من السكريات والدهون المشبعة والأطعمة المصنعة.",
+                    "• حاولي تناول وجبات صغيرة ومتعددة على مدار اليوم إذا كنت تعانين من فقدان الشهية.",
+                    "",
+                    "هل لديك استفسار محدد عن نوع معين من الطعام؟"
+                  ].join("\n");
+              } else if (question.includes("رياضة") || question.includes("تمرين") || question.includes("حركة") || question.includes("مشي")) {
+                  content = [
+                    "**الحركة بركة، والرياضة مفيدة جداً للحالة النفسية والجسدية.**",
+                    "ولكن تذكري دائماً استشارة طبيبك قبل البدء بأي برنامج رياضي.",
+                    "",
+                    "• **المشي:** من أسهل وأفضل الرياضات، ابدئي بـ 10-15 دقيقة يومياً وزيديها تدريجياً.",
+                    "• **تمارين التمدد (Stretching):** تساعد على مرونة العضلات وتقليل التوتر.",
+                    "• **اليوغا:** مفيدة جداً للاسترخاء وتحسين التنفس.",
+                    "",
+                    "استمعي لجسدك دائماً، وتوقفي فوراً عند الشعور بأي ألم أو تعب شديد."
+                  ].join("\n");
+              } else if (question.includes("نوم") || question.includes("أرق") || question.includes("سهر")) {
+                   content = [
+                    "**النوم الجيد يساعد جسمك على التعافي وتجديد طاقته.**",
+                    "إليك بعض النصائح لتحسين جودة نومك:",
+                    "",
+                    "• حاولي تثبيت موعد النوم والاستيقاظ.",
+                    "• تجنبي الشاشات (موبايل، تلفزيون) قبل النوم بساعة على الأقل.",
+                    "• اجعلي غرفة النوم هادئة ومظلمة ومريحة.",
+                    "• تجنبي الكافيين والوجبات الثقيلة في المساء.",
+                    "• جربي تمارين الاسترخاء أو التنفس العميق قبل النوم.",
+                    "",
+                    "هل تعانين من الأرق بشكل مستمر؟"
+                   ].join("\n");
               } else {
                   content = "أهلاً بيكي. أنا سامعاكي كويس ومقدرة كل كلمة بتقوليها. كملي، أنا معاكي للآخر. إيه كمان شاغل بالك أو مضايقك؟ خدي راحتك في الكلام، أنا هنا عشان أسمعك.";
               }
@@ -406,8 +466,45 @@ export class AIService {
                      "**Next Step**",
                      "• I can prepare your doctor question list and set reminders. Would you like me to start now?",
                    ].join("\n");
+              } else if (question.includes("nutrition") || question.includes("food") || question.includes("eat") || question.includes("diet")) {
+                  content = [
+                    "**Good nutrition is a key part of your health.**",
+                    "Here are some general tips that might help:",
+                    "",
+                    "• Focus on fresh fruits and vegetables for vitamins and minerals.",
+                    "• Include healthy proteins (chicken, fish, legumes) to build and repair tissues.",
+                    "• Drink enough water (about 8 cups daily) to stay hydrated.",
+                    "• Limit sugar, saturated fats, and processed foods.",
+                    "• Try small, frequent meals if you have a loss of appetite.",
+                    "",
+                    "Do you have a specific question about a certain food?"
+                  ].join("\n");
+              } else if (question.includes("exercise") || question.includes("workout") || question.includes("activity") || question.includes("walk")) {
+                  content = [
+                    "**Movement is medicine, and exercise helps both mind and body.**",
+                    "Always consult your doctor before starting any new exercise routine.",
+                    "",
+                    "• **Walking:** One of the best and easiest activities. Start with 10-15 minutes a day.",
+                    "• **Stretching:** Helps keep muscles flexible and reduces tension.",
+                    "• **Yoga:** Great for relaxation and breathing.",
+                    "",
+                    "Listen to your body, and stop immediately if you feel pain or extreme fatigue."
+                  ].join("\n");
+              } else if (question.includes("sleep") || question.includes("insomnia") || question.includes("awake")) {
+                  content = [
+                    "**Quality sleep helps your body heal and recharge.**",
+                    "Here are some tips for better sleep:",
+                    "",
+                    "• Stick to a regular sleep schedule.",
+                    "• Avoid screens (phone, TV) at least an hour before bed.",
+                    "• Keep your bedroom dark, quiet, and cool.",
+                    "• Avoid caffeine and heavy meals in the evening.",
+                    "• Try relaxation exercises or deep breathing before bed.",
+                    "",
+                    "Do you struggle with insomnia often?"
+                  ].join("\n");
               } else {
-                  content = "I'm here for you. I hear you and I support you. Would you like to tell me more?";
+                  content = "I'm here for you. I hear you and I support you. Would you like to tell me more? I can help with questions about nutrition, exercise, sleep, or symptoms.";
               }
           }
       } else {
@@ -579,9 +676,4 @@ export class AIService {
       retryAfter: type === AIErrorType.GEMINI_RATE_LIMIT ? 60000 : undefined,
     };
   }
-}
-
-// Export singleton factory
-export function getAIService(): AIService {
-  return AIService.getInstance();
 }

@@ -22,7 +22,8 @@ import { AIError, AIErrorType, GeminiRequest, GeminiResponse } from './types';
  * Handles all communication with Google Gemini API
  */
 export class GeminiClient {
-  private apiKey: string;
+  private apiKeys: string[];
+  private apiKeyIndex = 0;
   private model: string;
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
   private timeout: number;
@@ -38,10 +39,25 @@ export class GeminiClient {
       throw new Error('GEMINI_MODEL is required');
     }
 
-    this.apiKey = config.apiKey;
+    this.apiKeys = String(config.apiKey)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (this.apiKeys.length === 0) {
+      throw new Error('GEMINI_API_KEY is required');
+    }
     this.model = GeminiClient.normalizeModelName(config.model);
     this.timeout = config.timeout || 5000; // 5s default for faster failover
     this.maxRetries = config.maxRetries || 1; // Reduce retries to fail fast
+  }
+
+  private getApiKey(): string {
+    return this.apiKeys[this.apiKeyIndex] || this.apiKeys[0];
+  }
+
+  private rotateApiKey(): void {
+    if (this.apiKeys.length <= 1) return;
+    this.apiKeyIndex = (this.apiKeyIndex + 1) % this.apiKeys.length;
   }
 
   private static normalizeModelName(model: string): string {
@@ -99,7 +115,7 @@ export class GeminiClient {
   }
 
   private async listModels(): Promise<string[]> {
-    const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(this.apiKey)}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(this.getApiKey())}`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -197,6 +213,10 @@ export class GeminiClient {
           throw lastError;
         }
 
+        if (lastError.type === AIErrorType.GEMINI_RATE_LIMIT || lastError.type === AIErrorType.GEMINI_INVALID_KEY) {
+          this.rotateApiKey();
+        }
+
         // Exponential backoff: 1s, 2s, 4s
         if (attempt < this.maxRetries - 1) {
           const waitTime = Math.pow(2, attempt) * 1000;
@@ -214,7 +234,7 @@ export class GeminiClient {
    * @private
    */
   private async makeRequest(request: GeminiRequest): Promise<GeminiResponse> {
-    const url = `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`;
+    const url = `${this.baseUrl}/${this.model}:generateContent?key=${this.getApiKey()}`;
 
     try {
       const controller = new AbortController();

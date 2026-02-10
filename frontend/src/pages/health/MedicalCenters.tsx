@@ -217,15 +217,40 @@ const MedicalCenters = () => {
                   </div>
 
                   <div className="flex flex-col gap-2 md:w-48">
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        const q = encodeURIComponent(`${center.name} ${center.address}`);
+                        const url = `https://www.google.com/maps/search/?api=1&query=${q}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
                       <Navigation className="w-4 h-4 mr-2" />
                       Get Directions
                     </Button>
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        const tel = String(center.phone || '').replace(/[^+\d]/g, '');
+                        if (tel) {
+                          window.location.href = `tel:${tel}`;
+                        }
+                      }}
+                    >
                       <Phone className="w-4 h-4 mr-2" />
                       Call Now
                     </Button>
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        const q = encodeURIComponent(`${center.name} ${center.address}`);
+                        const url = `https://www.google.com/search?q=${q}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View Details
                     </Button>

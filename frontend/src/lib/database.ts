@@ -89,28 +89,30 @@ export const setCurrentUser = (user: User | null): void => {
 
 // Get current logged-in user
 export const getCurrentUser = (): User | null => {
+  const REQUIRE_LOGIN_ALWAYS = String(import.meta.env.VITE_REQUIRE_LOGIN_ALWAYS || '').toLowerCase() === 'true';
   // Primary: legacy current user
-  const user = localStorage.getItem(CURRENT_USER_KEY);
-  if (user) return JSON.parse(user);
+  const userLegacy = localStorage.getItem(CURRENT_USER_KEY);
+  if (userLegacy) return JSON.parse(userLegacy);
 
-  // Fallback: new auth context storage
-  const auth = localStorage.getItem(AUTH_USER_KEY);
-  if (auth) {
-    try {
+  // New auth storage: check sessionStorage first when REQUIRE_LOGIN_ALWAYS, else localStorage
+  try {
+    const authSession = sessionStorage.getItem(AUTH_USER_KEY);
+    const authLocal = localStorage.getItem(AUTH_USER_KEY);
+    const auth = REQUIRE_LOGIN_ALWAYS ? authSession : (authLocal || authSession);
+    if (auth) {
       const parsed = JSON.parse(auth);
       return {
         id: String(parsed.id ?? ""),
         name: parsed.username || parsed.email || "User",
         email: parsed.email || "",
-        password: "", // not stored
+        password: "",
         userType: parsed.userType || "wellness",
         createdAt: new Date().toISOString(),
         language: parsed.language,
       } as User;
-    } catch (error) {
-      console.error("Failed to parse auth user:", error);
-      return null;
     }
+  } catch (error) {
+    console.error("Failed to parse auth user:", error);
   }
 
   return null;

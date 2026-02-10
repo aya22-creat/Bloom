@@ -19,7 +19,7 @@
  */
 
 import { GeminiClient } from './gemini.client';
-import { AIService, getAIService } from './ai.service';
+import { AIService } from './ai.service';
 import { validateMasterPrompt, getPromptStats } from '../lib/master-prompt';
 
 /**
@@ -31,7 +31,7 @@ export async function initializeGeminiAI(): Promise<void> {
 
   try {
     // Step 1: Validate environment variables
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY;
     const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
     if (!apiKey) {
@@ -62,7 +62,7 @@ export async function initializeGeminiAI(): Promise<void> {
     console.log(`✓ Gemini client initialized`);
 
     // Step 4: Initialize AI Service with Gemini client
-    const aiService = getAIService();
+    const aiService = AIService.getInstance();
     aiService.initialize(geminiClient);
 
     const runStartupHealthCheck = String(process.env.GEMINI_STARTUP_HEALTHCHECK || '').toLowerCase() === 'true';
@@ -96,7 +96,7 @@ export async function initializeGeminiAI(): Promise<void> {
  * Should be called after initializeGeminiAI()
  */
 export function getAI(): AIService {
-  return getAIService();
+  return AIService.getInstance();
 }
 
 /**
@@ -104,7 +104,7 @@ export function getAI(): AIService {
  */
 export async function isAIReady(): Promise<boolean> {
   try {
-    const aiService = getAIService();
+    const aiService = AIService.getInstance();
     return await aiService.healthCheck();
   } catch {
     return false;

@@ -25,7 +25,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { getCurrentUser, logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
-import { apiAI } from "@/lib/api";
+import { apiAI, apiReports } from "@/lib/api";
 import { 
   generateSystemPrompt, 
   getContextualSuggestions, 
@@ -391,10 +391,9 @@ const AIHealthAssistant = () => {
         history,
         mode: activeMode 
       });
-      const resultObj = result as Record<string, unknown>;
-      const isFallback = resultObj?.fallback === true;
-      
-      const aiResponseContent = String(resultObj?.text || "");
+      const resultObj = result as Record<string, any>;
+      const isFallback = Boolean(resultObj?.fallback);
+      const aiResponseContent = String(resultObj?.data?.text || resultObj?.text || "");
 
       const aiResponse: ChatMessage = {
         id: Date.now() + 1,
@@ -775,11 +774,20 @@ const AIHealthAssistant = () => {
                           </div>
                         );
                       }
+                      
+                      // Handle Arabic/colon section titles (e.g. "تأثير العلاج:" or "Next steps:")
+                      if (processedLine.length > 0 && processedLine.length <= 80 && processedLine.endsWith(':')) {
+                        return (
+                          <div key={lineIdx} className="font-bold mt-3 mb-1 text-primary">
+                            {processedLine.slice(0, -1)}
+                          </div>
+                        );
+                      }
 
                       // Handle Bullet Points
                       const isBullet = processedLine.startsWith('* ') || processedLine.startsWith('- ') || processedLine.startsWith('• ');
                       if (isBullet) {
-                        processedLine = processedLine.replace(/^[\*\-\•]\s*/, '').trim();
+                        processedLine = processedLine.replace(/^[*•-]\s*/, '').trim();
                       }
 
                       // Handle Numbered Lists
@@ -941,10 +949,40 @@ const AIHealthAssistant = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     Supported formats: JPG, PNG, PDF
                   </p>
-                  <Button className="gradient-rose text-white">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Choose File
-                  </Button>
+                  {(() => {
+                    const [uploading, setUploading] = useState(false);
+                    const [uploadResult, setUploadResult] = useState("");
+                    const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try {
+                        const resp = await apiReports.uploadMedicalReport(file);
+                        const text = `${resp?.data?.summary || ''}\n\n${resp?.data?.explanation || ''}\n\nNext steps:\n- ${(resp?.data?.next_steps || []).join('\n- ')}\n\nRed flags:\n- ${(resp?.data?.red_flags || []).join('\n- ')}\n\n${resp?.data?.disclaimer || ''}`;
+                        setUploadResult(text);
+                        toast({ title: 'Upload complete', description: 'Report analyzed (guidance only).' });
+                      } catch (err: any) {
+                        toast({ title: 'Upload failed', description: err?.message || 'Please try again', variant: 'destructive' });
+                      } finally {
+                        setUploading(false);
+                        e.target.value = '';
+                      }
+                    };
+                    return (
+                      <>
+                        <input id="hb-report-file" type="file" accept="image/*,.pdf" className="hidden" onChange={onPick} />
+                        <Button className="gradient-rose text-white" disabled={uploading} onClick={() => document.getElementById('hb-report-file')?.click()}>
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploading ? 'Uploading...' : 'Choose File'}
+                        </Button>
+                        {uploadResult && (
+                          <div className="mt-4 p-4 bg-white border border-primary/20 shadow-soft rounded-lg text-sm whitespace-pre-wrap">
+                            {uploadResult}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -13,11 +13,11 @@ import {
   Bell,
   User,
   LogOut,
-  Flower2
+  Flower2,
+  ShoppingBag
 } from "lucide-react";
 import { logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
-  ShoppingBag
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ThemeSwitcher";

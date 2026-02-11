@@ -11,5 +11,10 @@ export interface Reminder {
   interval?: string; // 'every_2_hours'
   enabled?: number;  // 1 or 0
   mandatory?: number; // 1 or 0
+  created_by?: 'user' | 'doctor';
+  telegram_sent?: number; // 1 or 0
+  telegram_sent_at?: string;
+  telegram_attempts?: number;
+  telegram_last_attempt_at?: string;
   created_at?: string;
 }

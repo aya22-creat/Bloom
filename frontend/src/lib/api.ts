@@ -123,7 +123,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Auth
 export const apiAuth = {
-  register: async (payload: { username: string; email: string; password: string; phone?: string; userType?: string; language?: string }) => {
+  register: async (payload: { username: string; email: string; password: string; phone?: string; countryCode?: string; userType?: string; language?: string }) => {
     try {
       return await request('/users/register', { method: 'POST', body: JSON.stringify(payload) });
     } catch (err: any) {
@@ -139,6 +139,7 @@ export const apiAuth = {
         username: payload.username,
         email: payload.email,
         phone: payload.phone || null,
+        countryCode: payload.countryCode || null,
         userType: payload.userType || 'wellness',
         language: payload.language || 'en',
         password: payload.password,

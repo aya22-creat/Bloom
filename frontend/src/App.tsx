@@ -7,6 +7,7 @@ import Welcome from "./pages/auth/Welcome";
 import Onboarding from "./pages/auth/Onboarding";
 import Register from "./pages/auth/Register";
 import Login from "./pages/auth/Login";
+import TelegramOnboarding from "./pages/auth/TelegramOnboarding";
 import HealthQuestionnaire from "./pages/health/HealthQuestionnaire";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Profile from "./pages/dashboard/Profile";
@@ -71,6 +72,7 @@ const App = () => (
           {/* Public Routes */}
           <Route path="/" element={<Welcome />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/telegram-onboarding" element={<TelegramOnboarding />} />
           <Route path="/login/*" element={<Login />} />
           <Route path="/signin" element={<Navigate to="/login" replace />} />
           <Route path="/sign-in" element={<Navigate to="/login" replace />} />

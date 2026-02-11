@@ -7,7 +7,6 @@ import { initializeGeminiAI } from './ai/init.ts';
 import { OpenAIClient } from './ai/openai.client.ts';
 import { AIService } from './ai/ai.service.ts';
 import { initializeSocketIO } from './lib/socket.ts';
-import { initializeReminderScheduler } from './lib/scheduler.ts';
 import healthLogsRouter from './routes/healthLogs.ts';
 
 // Existing routes
@@ -32,6 +31,9 @@ import marketplaceRoutes from './routes/marketplace.ts';
 import communityRoutes from './routes/community.ts';
 import ordersRoutes from './routes/orders.ts';
 import companyAnalyticsRoutes from './routes/companyAnalytics.ts';
+import telegramRouter from './routes/telegram.ts';
+import { initializeTelegramBot } from './services/telegram.service.ts';
+import { startReminderScheduler } from './services/reminderScheduler.service.ts';
 
 // New RBAC routes
 // import userManagementRouter from './routes/userManagement';
@@ -79,6 +81,7 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/company/analytics', companyAnalyticsRoutes);
+app.use('/api/telegram', telegramRouter);
 
 // New RBAC routes
 // app.use('/api/auth', userManagementRouter);
@@ -133,9 +136,13 @@ async function startServer() {
     initializeSocketIO(server);
     console.log('✅ Socket.IO initialized');
 
-    // Initialize reminder scheduler
-    initializeReminderScheduler();
-    console.log('✅ Reminder scheduler initialized');
+    // Initialize Telegram bot
+    initializeTelegramBot();
+    console.log('✅ Telegram bot initialized');
+
+    // Initialize reminder scheduler (Telegram-based)
+    startReminderScheduler();
+    console.log('✅ Telegram reminder scheduler initialized');
 
     // Initialize Gemini AI (must be after database)
     await initializeGeminiAI().catch(error => {

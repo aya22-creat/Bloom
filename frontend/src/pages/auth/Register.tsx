@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiAuth } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { countries } from "@/lib/countries";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const Register = () => {
     name: "",
     email: "",
     phone: "",
+    countryCode: "+20",
     password: "",
     confirmPassword: "",
     userType: "" as "fighter" | "survivor" | "wellness" | "",
@@ -66,7 +68,7 @@ const Register = () => {
     setIsLoading(true);
 
     // Validation
-    if (!formData.name || !formData.email || !formData.password || !formData.userType) {
+    if (!formData.name || !formData.email || !formData.password || !formData.userType || !formData.phone) {
       toast({
         title: t('auth.missing_info'),
         description: t('auth.fill_all_fields'),
@@ -97,11 +99,13 @@ const Register = () => {
     }
 
     try {
+      const fullPhone = formData.countryCode + formData.phone;
       const data = await apiAuth.register({
         username: formData.name,
         email: formData.email,
         password: formData.password,
-        phone: formData.phone || undefined,
+        phone: fullPhone,
+        countryCode: formData.countryCode,
         userType: formData.userType,
         language: formData.language,
       });
@@ -130,7 +134,7 @@ const Register = () => {
           description: t('auth.welcome_hopebloom', { name: formData.name }),
         });
 
-        navigate(`/questionnaire/${formData.userType}`);
+        navigate('/telegram-onboarding', { state: { fromRegistration: true } });
       }
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -203,18 +207,37 @@ const Register = () => {
               />
             </div>
 
-            {/* Phone (WhatsApp) */}
+            {/* Phone with Country Code */}
             <div>
-              <Label htmlFor="phone">{t('auth.phone_number')}</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder={t('auth.phone_placeholder')}
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
+              <Label htmlFor="phone">{t('auth.phone_number')} *</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={formData.countryCode}
+                  onValueChange={(value) => setFormData({ ...formData, countryCode: value })}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countries.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.flag} {country.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="1234567890"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  required
+                  className="flex-1"
+                />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {t('auth.phone_hint')}
+                Required for Telegram reminders
               </p>
             </div>
 

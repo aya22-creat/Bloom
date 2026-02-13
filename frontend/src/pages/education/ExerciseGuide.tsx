@@ -17,10 +17,13 @@ import {
   Video
 } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { apiWhatsApp } from "@/lib/api";
 
 const ExerciseGuide = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [painLevel, setPainLevel] = useState([3]);
   const [energyLevel, setEnergyLevel] = useState([7]);
 
@@ -66,6 +69,18 @@ const ExerciseGuide = () => {
       video: true,
     },
   ];
+
+  const sendWhatsApp = async (name: string) => {
+    try {
+      const to = window.prompt("Enter WhatsApp phone number (e.g. +201234567890)") || "";
+      if (!to.trim()) return;
+      const body = `Exercise Reminder: ${name}. Open the coach and follow on-camera guidance.`;
+      await apiWhatsApp.send({ to, body });
+      toast({ title: "WhatsApp sent", description: `Reminder sent for: ${name}` });
+    } catch (e: any) {
+      toast({ title: "Send failed", description: e?.message || "Try again", variant: "destructive" });
+    }
+  };
 
   const prohibitedMovements = [
     "Heavy lifting above shoulder height",
@@ -168,9 +183,17 @@ const ExerciseGuide = () => {
                         variant="outline" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => navigate(`/exercise-coach/${userType}?exercise=${encodeURIComponent(exercise.name)}`)}
+                        onClick={() => navigate(`/exercise-coach?exercise=${encodeURIComponent(exercise.name)}`)}
                       >
                         Start Exercise
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => sendWhatsApp(exercise.name)}
+                      >
+                        WhatsApp Reminder
                       </Button>
                     </div>
                   </Card>

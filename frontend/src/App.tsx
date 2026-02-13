@@ -10,11 +10,13 @@ import Login from "./pages/auth/Login";
 import HealthQuestionnaire from "./pages/health/HealthQuestionnaire";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Profile from "./pages/dashboard/Profile";
+import HistoryReport from "./pages/dashboard/HistoryReport";
 import { useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import AIHealthAssistant from "./pages/health/AIHealthAssistant";
 import SelfAssessment from "./pages/health/SelfAssessment";
 import HealthTracker from "./pages/health/HealthTracker";
+import PatientHistory from "./pages/health/PatientHistory";
 import NutritionPlan from "./pages/wellness/NutritionPlan";
 import ExerciseGuide from "./pages/education/ExerciseGuide";
 import AIExerciseCoach from "./pages/education/AIExerciseCoach";
@@ -28,6 +30,28 @@ import Reminders from "./pages/dashboard/Reminders";
 import ReminderAction from "./pages/dashboard/ReminderAction";
 import Meditation from "./pages/wellness/Meditation";
 import NotFound from "./pages/NotFound";
+
+// Course routes
+import { CourseCatalog } from "./pages/education/CourseCatalog";
+import { CourseDetails } from "./pages/education/CourseDetails";
+import { MyCourses } from "./pages/education/MyCourses";
+import { CoursePlayer } from "./pages/education/CoursePlayer";
+import { PaymentSuccess } from "./pages/education/PaymentSuccess";
+
+// Admin routes
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+
+// Community routes
+import CommunityLayout from "./components/community/CommunityLayout";
+import CommunityHome from "./pages/community/CommunityHome";
+import SessionsList from "./pages/community/SessionsList";
+import SessionDetails from "./pages/community/SessionDetails";
+import NewsList from "./pages/community/NewsList";
+import NewsDetails from "./pages/community/NewsDetails";
+
+// Marketplace routes
+import MarketplaceHome from "./pages/marketplace/MarketplaceHome";
+import ProductDetails from "./pages/marketplace/ProductDetails";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +94,16 @@ const App = () => (
           <Route path="/sign-in" element={<Navigate to="/login" replace />} />
           <Route path="/404" element={<Navigate to="/login" replace />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          {/* Public AI Exercise Coach (camera/pose estimation) */}
+          <Route path="/exercise-coach" element={<AIExerciseCoach />} />
+          
+          {/* Marketplace Routes (Public) */}
+          <Route path="/marketplace" element={<MarketplaceHome />} />
+          <Route path="/marketplace/product/:id" element={<ProductDetails />} />
+          
+          {/* Course Routes (Public) */}
+          <Route path="/courses" element={<CourseCatalog />} />
+          <Route path="/courses/:id" element={<CourseDetails />} />
           
           {/* Protected Routes */}
           <Route 
@@ -105,6 +139,14 @@ const App = () => (
             } 
           />
           <Route 
+            path="/history-report/:userType" 
+            element={
+              <ProtectedRoute>
+                <HistoryReport />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/ai-assistant/:userType" 
             element={
               <ProtectedRoute>
@@ -125,6 +167,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <HealthTracker />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/patient-history/:userType" 
+            element={
+              <ProtectedRoute>
+                <PatientHistory />
               </ProtectedRoute>
             } 
           />
@@ -224,6 +274,51 @@ const App = () => (
               </ProtectedRoute>
             } 
           />
+          
+          {/* Course Protected Routes */}
+          <Route 
+            path="/my-courses" 
+            element={
+              <ProtectedRoute>
+                <MyCourses />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/course/:id/learn" 
+            element={
+              <ProtectedRoute>
+                <CoursePlayer />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/success" 
+            element={
+              <ProtectedRoute>
+                <PaymentSuccess />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Admin Routes */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Community Routes */}
+          <Route path="/community" element={<CommunityLayout />}>
+            <Route index element={<CommunityHome />} />
+            <Route path="sessions" element={<SessionsList />} />
+            <Route path="sessions/:id" element={<SessionDetails />} />
+            <Route path="news" element={<NewsList />} />
+            <Route path="news/:id" element={<NewsDetails />} />
+          </Route>
           
           {/* Catch invalid protected routes */}
           <Route 

@@ -254,6 +254,7 @@ export class Database {
          date_of_birth NVARCHAR(30) NULL,
          gender NVARCHAR(20) NULL,
          country NVARCHAR(100) NULL,
+         medical_history NVARCHAR(MAX) NULL,
          created_at DATETIME DEFAULT GETDATE()
        )`,
       `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='whatsapp_message_logs' AND xtype='U')
@@ -273,6 +274,30 @@ export class Database {
          user_id INT NOT NULL,
          type NVARCHAR(20) NOT NULL,
          completed_at DATETIME DEFAULT GETDATE()
+       )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='medications' AND xtype='U')
+       CREATE TABLE medications (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         user_id INT NOT NULL,
+         name NVARCHAR(255) NOT NULL,
+         dosage NVARCHAR(100) NULL,
+         frequency NVARCHAR(100) NULL,
+         type NVARCHAR(100) NULL,
+         start_date NVARCHAR(20) NULL,
+         end_date NVARCHAR(20) NULL,
+         reason NVARCHAR(MAX) NULL,
+         notes NVARCHAR(MAX) NULL,
+         created_at DATETIME DEFAULT GETDATE()
+       )`,
+      `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='medication_logs' AND xtype='U')
+       CREATE TABLE medication_logs (
+         id INT IDENTITY(1,1) PRIMARY KEY,
+         medication_id INT NOT NULL,
+         user_id INT NULL,
+         taken_at DATETIME NULL,
+         logged_at DATETIME NULL,
+         status NVARCHAR(20) NULL,
+         notes NVARCHAR(MAX) NULL
        )`,
     ];
 
@@ -297,6 +322,11 @@ export class Database {
       `IF OBJECT_ID('self_exams','U') IS NOT NULL AND COL_LENGTH('self_exams','notes') IS NULL ALTER TABLE self_exams ADD notes NVARCHAR(MAX) NULL`,
       `IF OBJECT_ID('user_profiles','U') IS NOT NULL AND COL_LENGTH('user_profiles','date_of_birth') IS NULL ALTER TABLE user_profiles ADD date_of_birth NVARCHAR(30) NULL`,
       `IF OBJECT_ID('user_profiles','U') IS NOT NULL AND COL_LENGTH('user_profiles','gender') IS NULL ALTER TABLE user_profiles ADD gender NVARCHAR(20) NULL`,
+      `IF OBJECT_ID('user_profiles','U') IS NOT NULL AND COL_LENGTH('user_profiles','medical_history') IS NULL ALTER TABLE user_profiles ADD medical_history NVARCHAR(MAX) NULL`,
+      `IF OBJECT_ID('medications','U') IS NOT NULL AND COL_LENGTH('medications','type') IS NULL ALTER TABLE medications ADD type NVARCHAR(100) NULL`,
+      `IF OBJECT_ID('medications','U') IS NOT NULL AND COL_LENGTH('medications','frequency') IS NULL ALTER TABLE medications ADD frequency NVARCHAR(100) NULL`,
+      `IF OBJECT_ID('medications','U') IS NOT NULL AND COL_LENGTH('medications','reason') IS NULL ALTER TABLE medications ADD reason NVARCHAR(MAX) NULL`,
+      `IF OBJECT_ID('medications','U') IS NOT NULL AND COL_LENGTH('medications','notes') IS NULL ALTER TABLE medications ADD notes NVARCHAR(MAX) NULL`,
     ];
     for (const q of alters) {
       await runAsyncIgnore(q);
@@ -371,6 +401,7 @@ export class Database {
         date_of_birth TEXT,
         gender TEXT,
         country TEXT,
+        medical_history TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )`,
       `CREATE TABLE IF NOT EXISTS questionnaire_responses (
@@ -402,11 +433,56 @@ export class Database {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`
       ,
+      `CREATE TABLE IF NOT EXISTS medical_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        file_name TEXT NOT NULL,
+        mime_type TEXT,
+        size_kb INTEGER,
+        file_path TEXT NOT NULL,
+        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT
+      )`
+      ,
+      `CREATE TABLE IF NOT EXISTS medications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        dosage TEXT,
+        frequency TEXT,
+        type TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        reason TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS medication_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        medication_id INTEGER NOT NULL,
+        user_id INTEGER,
+        taken_at TEXT,
+        logged_at TEXT,
+        status TEXT,
+        notes TEXT,
+        FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
       `CREATE TABLE IF NOT EXISTS reminder_completions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         type TEXT NOT NULL,
         completed_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )`
+      ,
+      `CREATE TABLE IF NOT EXISTS symptoms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        symptom_name TEXT NOT NULL,
+        severity INTEGER,
+        notes TEXT,
+        logged_at TEXT DEFAULT CURRENT_TIMESTAMP
       )`
       ,
       `CREATE TABLE IF NOT EXISTS vendors (
@@ -484,6 +560,7 @@ export class Database {
       `ALTER TABLE users ADD COLUMN phone TEXT`,
       `ALTER TABLE users ADD COLUMN user_type TEXT`,
       `ALTER TABLE users ADD COLUMN language TEXT`,
+      `ALTER TABLE user_profiles ADD COLUMN medical_history TEXT`,
     ];
     for (const q of userAlters) {
       await runAsyncIgnore(q);
@@ -505,6 +582,36 @@ export class Database {
     for (const q of selfExamAlters) {
       await runAsyncIgnore(q);
     }
+
+    // Medication alters
+    const medicationAlters = [
+      `ALTER TABLE medications ADD COLUMN frequency TEXT`,
+      `ALTER TABLE medications ADD COLUMN type TEXT`,
+      `ALTER TABLE medications ADD COLUMN reason TEXT`,
+      `ALTER TABLE medications ADD COLUMN notes TEXT`,
+      `ALTER TABLE medications ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`
+    ];
+    for (const q of medicationAlters) {
+      await runAsyncIgnore(q);
+    }
+
+    await runAsyncIgnore(
+      `ALTER TABLE products ADD COLUMN image_url TEXT`
+    );
+
+
+    await runAsyncIgnore(
+      `CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id INTEGER,
+        details TEXT,
+        ip_address TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )`
+    );
 
     await runAsyncIgnore(
       `CREATE TABLE IF NOT EXISTS whatsapp_message_logs (

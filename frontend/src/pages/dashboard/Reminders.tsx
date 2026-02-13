@@ -163,7 +163,7 @@ const Reminders = () => {
           title: "Monthly Self Exam",
           contentKey: "monthly_self_exam",
           time: "09:00",
-          days: JSON.stringify(["monday"]),
+          days: ["monday"],
           enabled: true
       };
       
@@ -241,7 +241,7 @@ const Reminders = () => {
           <Card className="p-6 bg-white shadow-soft">
             <div className="flex items-center justify-between mb-6">
               <h3 className={cn("text-xl font-semibold text-foreground", isRTL ? "text-right" : "text-left")}>{t("reminders.your_reminders")}</h3>
-              <Button className="gradient-rose text-white">
+              <Button className="gradient-rose text-white" onClick={addDefaultReminder}>
                 <Plus className="w-4 h-4 mr-2" />
                 {t("reminders.add_reminder")}
               </Button>

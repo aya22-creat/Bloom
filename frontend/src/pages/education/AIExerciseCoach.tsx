@@ -3,6 +3,7 @@ import Webcam from "react-webcam";
 import * as tf from "@tensorflow/tfjs";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import "@tensorflow/tfjs-backend-webgl";
+import "@tensorflow/tfjs-backend-wasm";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Camera, RefreshCw, AlertCircle, CheckCircle2, Activity, Zap } from "lucide-react";
@@ -37,8 +38,27 @@ const AIExerciseCoach = () => {
   useEffect(() => {
     const loadModel = async () => {
       try {
-        setFeedback("Initializing TensorFlow...");
+        setFeedback("Initializing TensorFlow backend...");
+        try {
+          await tf.setBackend("webgl");
+        } catch {}
         await tf.ready();
+        let backend = tf.getBackend();
+        if (backend !== "webgl") {
+          try {
+            // Set wasm paths before switching backend
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            tf.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/');
+            await tf.setBackend("wasm");
+            await tf.ready();
+            backend = tf.getBackend();
+          } catch {}
+        }
+        if (backend !== "webgl" && backend !== "wasm") {
+          try { await tf.setBackend("cpu"); await tf.ready(); backend = tf.getBackend(); } catch {}
+        }
+        setFeedback(`Backend: ${backend} — loading pose detection model...`);
         
         setFeedback("Loading pose detection model...");
         const detectorConfig = {
@@ -57,7 +77,7 @@ const AIExerciseCoach = () => {
         // Start detection after a short delay to ensure camera is ready
         setTimeout(() => {
           runDetection();
-        }, 500);
+        }, 700);
       } catch (err) {
         console.error("Failed to load MoveNet:", err);
         setFeedback("Model error. Please refresh and allow camera access.");

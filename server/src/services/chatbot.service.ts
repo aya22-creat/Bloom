@@ -53,6 +53,7 @@ export class ChatbotService {
         safety,
       };
     } catch (err) {
+      console.warn('[ChatbotService] Rasa call failed:', (err as any)?.message || err);
       const text = this.applySafetyOverlay(
         'I am here to support you. Please try again shortly or contact a healthcare professional for urgent symptoms.',
         safety

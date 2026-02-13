@@ -23,11 +23,12 @@ router.post('/', (req, res) => {
   }
   // Map frequency/schedule to match database columns
   const frequency = m.frequency || (m as any).schedule || null;
+  const type = m.type || (m as any).medication_type || null;
   
   Database.db.run(
-    `INSERT INTO medications (user_id, name, dosage, frequency, start_date, end_date, reason, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [m.user_id, m.name, m.dosage || null, frequency, m.start_date || null, m.end_date || null, (m as any).reason || null, m.notes || null],
+    `INSERT INTO medications (user_id, name, dosage, frequency, type, start_date, end_date, reason, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [m.user_id, m.name, m.dosage || null, frequency, type, m.start_date || null, m.end_date || null, (m as any).reason || null, m.notes || null],
     function (this: RunResult, err) {
       if (err) return res.status(400).json({ error: 'Failed to create medication.' });
       res.status(201).json({ id: this.lastID });
@@ -43,9 +44,13 @@ router.put('/:id', (req, res) => {
   const setter = (k: string, v: any) => { fields.push(`${k} = ?`); params.push(v); };
   if (m.name !== undefined) setter('name', m.name);
   if (m.dosage !== undefined) setter('dosage', m.dosage);
-  if (m.schedule !== undefined) setter('schedule', m.schedule);
+  if (m.frequency !== undefined) setter('frequency', m.frequency);
+  if ((m as any).schedule !== undefined) setter('frequency', (m as any).schedule);
+  if (m.type !== undefined) setter('type', m.type);
   if (m.start_date !== undefined) setter('start_date', m.start_date);
   if (m.end_date !== undefined) setter('end_date', m.end_date);
+  if (m.reason !== undefined) setter('reason', m.reason);
+  if (m.notes !== undefined) setter('notes', m.notes);
   params.push(id);
   Database.db.run(
     `UPDATE medications SET ${fields.join(', ')} WHERE id = ?`,

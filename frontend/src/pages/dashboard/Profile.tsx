@@ -27,6 +27,7 @@ import { getCurrentUser, updateUser, logoutUser, User } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiProfile } from "@/lib/api";
+import { FileText } from "lucide-react";
 
 const Profile = () => {
   const { userType } = useParams<{ userType: string }>();
@@ -468,6 +469,17 @@ const Profile = () => {
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     Log Out
+                  </Button>
+                </div>
+
+                <div className="pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/history-report/${userType}`)}
+                    className="w-full gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Generate History Report
                   </Button>
                 </div>
               </div>

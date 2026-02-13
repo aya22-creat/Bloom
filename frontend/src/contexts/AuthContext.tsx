@@ -8,6 +8,7 @@ export interface User {
   userType: 'fighter' | 'survivor' | 'wellness';
   language?: 'ar' | 'en';
   token: string;
+  role?: 'user' | 'admin';
 }
 
 interface AuthContextType {

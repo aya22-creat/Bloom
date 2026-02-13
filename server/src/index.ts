@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Database } from './lib/database.ts';
 import { initializeGeminiAI } from './ai/init.ts';
 import { OpenAIClient } from './ai/openai.client.ts';
@@ -30,15 +32,11 @@ import aiCycleRouter from './routes/aiCycle.ts';
 import whatsappRouter from './routes/whatsapp.ts';
 import marketplaceRoutes from './routes/marketplace.ts';
 import communityRoutes from './routes/community.ts';
+import exercisesRouter from './routes/exercises.ts';
+import devSeedRouter from './routes/devSeed.ts';
 
-// New RBAC routes
-// import userManagementRouter from './routes/userManagement';
-// import chatRouter from './routes/chat';
-// import exercisesRouter from './routes/exercises';
-// import exerciseEvaluationRouter from './routes/exerciseEvaluation';
-// import remindersManagementRouter from './routes/remindersManagement';
-// import adminRouter from './routes/admin';
-// import doctorRouter from './routes/doctor';
+// New course routes
+import stripeRouter from './routes/stripe.ts';
 
 // Load environment variables
 dotenv.config();
@@ -46,9 +44,14 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static assets (materialized product images, reports, etc.)
+app.use('/static', express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/', (req, res) => {
   res.send('Bloom Hope Backend Running - RBAC Enhanced');
@@ -75,15 +78,12 @@ app.use('/api/health-logs', healthLogsRouter);
 app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/exercises', exercisesRouter);
+app.use('/api/dev', devSeedRouter);
 
-// New RBAC routes
-// app.use('/api/auth', userManagementRouter);
-// app.use('/api/chat', chatRouter);
-// app.use('/api/exercises', exercisesRouter);
-// app.use('/api/exercise-evaluation', exerciseEvaluationRouter);
-// app.use('/api/reminders-mgmt', remindersManagementRouter);
-// app.use('/api/admin', adminRouter);
-// app.use('/api/doctor', doctorRouter);
+// New course routes
+// app.use('/api/courses', coursesRouter);
+app.use('/api', stripeRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -8,7 +8,7 @@ type ReminderType = 'checkup' | 'appointment' | 'water' | 'exercise';
 
 type ReminderRow = {
   id: number;
-  type: ReminderType;
+  type: ReminderType | string;
   title?: string;
   description?: string | null;
   time?: string | null;
@@ -61,9 +61,18 @@ export default function ReminderNotifier() {
       }
     };
 
+    const normalizeType = (t?: string): ReminderType => {
+      const s = String(t || '').toLowerCase();
+      if (s === 'water' || s === 'drink_water') return 'water';
+      if (s === 'appointment' || s === 'medication' || s === 'doctor') return 'appointment';
+      if (s === 'checkup' || s === 'self_exam' || s === 'monthly_self_exam') return 'checkup';
+      return 'exercise';
+    };
+
     const schedule = async () => {
       const list = (await apiReminders.list(user.id)) as unknown as ReminderRow[];
       const now = Date.now();
+      const todayStr = new Date().toISOString().split('T')[0];
 
       list
         .filter((r) => r && r.enabled)
@@ -71,12 +80,16 @@ export default function ReminderNotifier() {
           const dt = normalizeDateTime(r);
           if (!dt) return;
           const due = dt.getTime();
-          const firedKey = `hb_reminder_fired_${r.id}`;
+          const firedKey = `hb_reminder_fired_${r.id}_${todayStr}`;
+          const nType = normalizeType(String(r.type));
+          const doneTypeKey = `hb_reminder_done_${user?.id}_${nType}_${todayStr}`;
+          if (localStorage.getItem(doneTypeKey) === '1') return;
           if (localStorage.getItem(firedKey) === '1') return;
 
           const fireNow = () => {
+            if (localStorage.getItem(doneTypeKey) === '1') return;
             localStorage.setItem(firedKey, '1');
-            const contentKey = getContentKey(r.type);
+            const contentKey = getContentKey(nType);
             const title = t(`reminders.defaults.${contentKey}.title`);
             const description = t(`reminders.defaults.${contentKey}.desc`);
             toast({ title, description });
@@ -84,20 +97,20 @@ export default function ReminderNotifier() {
             if (canNotify && permission === 'granted') {
               const n = new (window as any).Notification(title, { body: description, lang });
               n.onclick = () => {
-                if (r.type === 'checkup' && user?.userType) {
-                  window.location.hash = `#/exercise-videos/${user.userType}`;
-                } else if (r.type === 'water' && user?.userType) {
+                if (nType === 'checkup' && user?.userType) {
+                  window.location.hash = `#/self-assessment/${user.userType}`;
+                } else if (nType === 'water' && user?.userType) {
                   window.location.hash = `#/reminder-action/${user.userType}/water`;
-                } else if (r.type === 'appointment' && user?.userType) {
+                } else if (nType === 'appointment' && user?.userType) {
                   window.location.hash = `#/reminder-action/${user.userType}/medication`;
                 }
               };
             }
-            if (r.type === 'checkup' && user?.userType) {
-              window.location.hash = `#/exercise-videos/${user.userType}`;
-            } else if (r.type === 'water' && user?.userType) {
+            if (nType === 'checkup' && user?.userType) {
+              window.location.hash = `#/self-assessment/${user.userType}`;
+            } else if (nType === 'water' && user?.userType) {
               window.location.hash = `#/reminder-action/${user.userType}/water`;
-            } else if (r.type === 'appointment' && user?.userType) {
+            } else if (nType === 'appointment' && user?.userType) {
               window.location.hash = `#/reminder-action/${user.userType}/medication`;
             }
           };

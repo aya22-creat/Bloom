@@ -78,7 +78,9 @@ export const ProtectedRoute = ({ children, allowedUserTypes }: ProtectedRoutePro
   if (!mandatoryCheck.loading && mandatoryCheck.required) {
     const targetPath = `/health-tracker/${user.userType}`;
     const isOnTarget = location.pathname === targetPath;
-    if (!isOnTarget) {
+    const allowedSelfCheckPaths =
+      location.pathname.startsWith(`/self-assessment/`) || location.pathname.startsWith(`/3d-guide/`);
+    if (!isOnTarget && !allowedSelfCheckPaths) {
       return <Navigate to={`${targetPath}?tab=selfcheck`} replace />;
     }
   }

@@ -8,7 +8,7 @@
  * - Prevents JWT logic scattered throughout code
  */
 
-import { sign, verify, decode, TokenExpiredError, JsonWebTokenError, SignOptions } from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 
 export interface JwtPayload {
   id: number;
@@ -29,7 +29,7 @@ export class JwtUtil {
   static sign(payload: JwtPayload, secret: string, expiresIn: string = '24h'): string {
     try {
       const options: SignOptions = { expiresIn: expiresIn as any };
-      return sign(payload, secret, options);
+      return jwt.sign(payload, secret, options);
     } catch (error) {
       console.error('Error signing JWT:', error);
       throw new Error('Failed to sign token');
@@ -45,15 +45,12 @@ export class JwtUtil {
    */
   static verify(token: string, secret: string): JwtPayload {
     try {
-      const decoded = verify(token, secret) as JwtPayload;
+      const decoded = jwt.verify(token, secret) as JwtPayload;
       return decoded;
     } catch (error) {
-      if (error instanceof TokenExpiredError) {
-        throw new Error('Token has expired');
-      }
-      if (error instanceof JsonWebTokenError) {
-        throw new Error('Invalid token');
-      }
+      const name = (error as any)?.name;
+      if (name === 'TokenExpiredError') throw new Error('Token has expired');
+      if (name === 'JsonWebTokenError') throw new Error('Invalid token');
       throw error;
     }
   }
@@ -65,7 +62,7 @@ export class JwtUtil {
    */
   static decode(token: string): JwtPayload | null {
     try {
-      return decode(token) as JwtPayload;
+      return jwt.decode(token) as JwtPayload;
     } catch (error) {
       return null;
     }

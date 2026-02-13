@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { 
@@ -16,14 +17,24 @@ import {
   Shield,
   Heart,
   Sparkles,
-  FileText
+  FileText,
+  Play,
+  Clock,
+  Award,
+  Star,
+  Settings
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import { CourseService } from "@/services/course.service";
+import type { Course } from "@/types/course.types";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EducationalHub = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const categories = [
     { id: "prevention", icon: Shield },
@@ -90,6 +101,16 @@ const EducationalHub = () => {
     { name: "Egyptian Ministry of Health", icon: Shield },
   ];
 
+  const [featured, setFeatured] = useState<Course[]>([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await CourseService.getCourses({});
+        setFeatured((data || []).slice(0, 3));
+      } catch {}
+    })();
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
@@ -123,6 +144,26 @@ const EducationalHub = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <Link to="/courses">
+              <Button variant="outline" className="gap-2">
+                <BookOpen className="w-4 h-4" />
+                {t('educational.courses', 'الكورسات')}
+              </Button>
+            </Link>
+            <Link to="/my-courses">
+              <Button variant="outline" className="gap-2">
+                <Award className="w-4 h-4" />
+                {t('educational.myCourses', 'كورساتي')}
+              </Button>
+            </Link>
+            {user?.role === 'admin' && (
+              <Link to="/admin">
+                <Button variant="outline" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  {t('admin_panel', 'لوحة التحكم')}
+                </Button>
+              </Link>
+            )}
             <Button variant="ghost" size="icon">
               <Bell className="w-5 h-5" />
             </Button>
@@ -142,12 +183,98 @@ const EducationalHub = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs defaultValue="articles" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="courses" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="courses">{t('educational.courses', 'الكورسات')}</TabsTrigger>
             <TabsTrigger value="articles">{t('educational.tabs.articles')}</TabsTrigger>
             <TabsTrigger value="categories">{t('educational.tabs.categories')}</TabsTrigger>
             <TabsTrigger value="sources">{t('educational.tabs.sources')}</TabsTrigger>
           </TabsList>
+
+          {/* Courses Tab */}
+          <TabsContent value="courses" className="space-y-4">
+            <Card className="p-6 bg-white shadow-soft">
+              <div className="space-y-4 mb-6">
+                <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <BookOpen className="w-6 h-6 text-primary" />
+                  {t('educational.courses', 'الكورسات التعليمية')}
+                </h2>
+                <p className="text-muted-foreground">
+                  {t('educational.courses_desc', 'اكتسب المعرفة والمهارات اللازمة للتعامل مع أورام الثدي من خلال كورساتنا المتخصصة')}
+                </p>
+              </div>
+
+              {/* Featured Courses */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featured.map((course) => (
+                  <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="relative">
+                      <img
+                        src={course.thumbnail_url || 'https://via.placeholder.com/400x225'}
+                        alt={course.title}
+                        className="w-full h-48 object-cover"
+                      />
+                      <Badge className="absolute top-4 right-4">
+                        {course.level}
+                      </Badge>
+                    </div>
+                    
+                    <Card className="p-4">
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg line-clamp-2">{course.title}</h3>
+                        <p className="text-sm text-gray-600 line-clamp-3">{course.description}</p>
+                        
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            <span>{course.duration_hours} ساعة</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <span>{course.instructor?.rating || 0}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <UserIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{course.instructor?.name || 'مدرب'}</p>
+                            <p className="text-xs text-gray-500">{course.instructor?.total_students || 0} طالب</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="text-2xl font-bold text-blue-600">
+                            {new Intl.NumberFormat('ar-EG', {
+                              style: 'currency',
+                              currency: 'EGP'
+                            }).format(Number(course.price))}
+                          </span>
+                          <Link to={`/courses/${course.id}`}>
+                            <Button size="sm">
+                              {t('educational.viewCourse', 'عرض الكورس')}
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </Card>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Call to Action */}
+              <div className="mt-8 text-center">
+                <Link to="/courses">
+                  <Button size="lg" className="gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    {t('educational.browseAllCourses', 'تصفح جميع الكورسات')}
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          </TabsContent>
 
           {/* Articles Tab */}
           <TabsContent value="articles" className="space-y-4">
@@ -188,7 +315,7 @@ const EducationalHub = () => {
                       key={cat.id}
                       variant={selectedCategory === cat.id ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setSelectedCategory(cat.categoryName || cat.id)} // Assuming category match needs to be precise, let's align names. 
+                      onClick={() => setSelectedCategory(cat.id)}
                     >
                        {t(`educational.category.${cat.id}`)}
                     </Button>
@@ -329,4 +456,3 @@ const EducationalHub = () => {
 };
 
 export default EducationalHub;
-

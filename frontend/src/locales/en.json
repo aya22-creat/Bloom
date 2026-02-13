@@ -99,7 +99,8 @@
       "educational_hub": "Educational Hub",
       "medical_centers": "Medical Centers",
       "mental_wellness": "Mental Wellness",
-      "reminders": "Reminders"
+      "reminders": "Reminders",
+      "marketplace": "Marketplace"
     },
     "dashboard": {
       "welcome_back": "Welcome back,",
@@ -127,7 +128,11 @@
       "educational_hub_desc": "Reliable information and learning resources",
       "medical_centers_desc": "Find nearby hospitals and clinics",
       "mental_wellness_desc": "Support for mental health and resilience",
-      "reminders_desc": "Stay on track with smart reminders"
+      "reminders_desc": "Stay on track with smart reminders",
+      "marketplace_desc": "Shop verified and trusted products"
+      ,
+      "medical_history_title": "Medical History",
+      "medical_history_desc": "Record your medical history and print a comprehensive report."
     },
   "common": {
     "loading": "Loading...",

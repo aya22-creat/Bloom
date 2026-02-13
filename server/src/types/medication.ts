@@ -5,6 +5,7 @@ export interface Medication {
   dosage?: string;
   frequency?: string;
   schedule?: string;
+  type?: string;
   start_date?: string;
   end_date?: string;
   reason?: string;

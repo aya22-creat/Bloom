@@ -141,15 +141,15 @@ export function ExerciseCamera({ exercise, onComplete }: ExerciseCameraProps) {
   const submitEvaluation = async () => {
     setIsSubmitting(true);
     try {
-      const response = await api.post('/exercises/evaluate', {
-        exercise_id: exercise.id,
-        patient_frames: recordedFrames,
+      await api.post('/exercises/evaluate', {
+        exercise_name: i18n.language === 'ar' ? exercise.name_ar : exercise.name,
+        completed: true,
         pain_level: painLevel,
         fatigue_level: fatigueLevel,
-        patient_notes: notes || undefined
+        notes: notes || undefined
       });
 
-      onComplete?.(response.data.data);
+      onComplete?.({ completed: true, pain_level: painLevel, fatigue_level: fatigueLevel });
     } catch (error) {
       console.error('Failed to submit evaluation:', error);
       alert(t('Failed to save exercise evaluation'));

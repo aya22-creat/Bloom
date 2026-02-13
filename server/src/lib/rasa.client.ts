@@ -14,40 +14,27 @@ export class RasaClient {
   constructor(private baseUrl: string, private timeoutMs: number = 15000) {}
 
   async sendMessage(senderId: string, message: string): Promise<string> {
-    const payload = JSON.stringify({ sender: senderId, message });
-    const url = new URL(this.baseUrl);
-    const isHttps = url.protocol === 'https:';
-    const httpMod = require(isHttps ? 'https' : 'http');
-    const options = {
-      hostname: url.hostname,
-      port: Number(url.port || (isHttps ? 443 : 80)),
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-    };
-    return new Promise<string>((resolve, reject) => {
-      const req = httpMod.request(options, (res: any) => {
-        let body = '';
-        res.on('data', (chunk: any) => (body += chunk));
-        res.on('end', () => {
-          try {
-            const data = JSON.parse(body) as RasaResponseItem[];
-            const text = (data || [])
-              .map((d) => d.text)
-              .filter(Boolean)
-              .join('\n');
-            resolve(text || '');
-          } catch (e) {
-            reject(e);
-          }
-        });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: senderId, message }),
+        signal: controller.signal,
       });
-      req.on('error', (err: any) => reject(err));
-      req.setTimeout(this.timeoutMs, () => {
-        try { req.destroy(new Error('Rasa timeout')); } catch {}
-      });
-      req.write(payload);
-      req.end();
-    });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Rasa HTTP ${res.status}`);
+      }
+      const data = (await res.json().catch(() => [])) as RasaResponseItem[];
+      const text = (data || [])
+        .map((d) => d.text)
+        .filter(Boolean)
+        .join('\n');
+      return text || '';
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }

@@ -133,10 +133,15 @@ const Register = () => {
         navigate(`/questionnaire/${formData.userType}`);
       }
     } catch (error: any) {
-      console.error("Registration error:", error);
+      const msg = String(error?.message || '').toLowerCase();
+      const desc = msg.includes('already registered')
+        ? 'البريد الإلكتروني مسجل بالفعل'
+        : msg.includes('username is already taken')
+          ? 'اسم المستخدم مستخدم بالفعل'
+          : (error.message || t('auth.error_occurred'));
       toast({
         title: t('auth.registration_failed'),
-        description: error.message || t('auth.error_occurred'),
+        description: desc,
         variant: "destructive",
       });
     } finally {

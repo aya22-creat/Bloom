@@ -144,23 +144,19 @@ export class AIService {
     }
 
     const startTime = Date.now();
+    let taskPrompt = '';
+    let systemPrompt = '';
 
     try {
-      // Step 1: Build task-specific prompt
-      const taskPrompt = this.buildTaskPrompt(request.task, request.input);
+      taskPrompt = this.buildTaskPrompt(request.task, request.input);
 
-      // Step 2: Get master system prompt and optional frontend mode-specific instructions
       let explicitModeInstruction = '';
       if (request.context?.mode) {
         const mode = request.context.mode.toUpperCase();
         explicitModeInstruction = `\n\n=== USER SELECTED MODE: ${mode} ===\nThe user has explicitly selected ${mode} mode. You MUST adhere to the ${mode} guidelines above.`;
       }
 
-      const systemPrompt = [
-        HOPEBLOOM_SYSTEM_PROMPT,
-        request.input.context, // Frontend-generated system prompt
-        explicitModeInstruction
-      ]
+      systemPrompt = [HOPEBLOOM_SYSTEM_PROMPT, request.input.context, explicitModeInstruction]
         .filter(Boolean)
         .join('\n\n=== CONTEXT & INSTRUCTIONS ===\n\n');
 
@@ -170,21 +166,28 @@ export class AIService {
         parts: msg.parts
       }));
 
+      const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+      const inline = (request.input as any)?.imageInline as { mimeType: string; data: string } | undefined;
+      if (inline && inline.mimeType && inline.data) {
+        userParts.push({ inlineData: inline });
+      }
+      userParts.push({ text: taskPrompt });
+
       const geminiRequest: GeminiRequest = {
         contents: [
           ...history,
           {
             role: 'user',
-            parts: [{ text: taskPrompt }],
+            parts: userParts,
           },
         ],
         systemInstruction: {
           parts: [{ text: systemPrompt }],
         },
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.2,
           maxOutputTokens: 1024,
-          topP: 0.95,
+          topP: 0.9,
           topK: 40,
           responseMimeType: "application/json"
         },
@@ -287,6 +290,12 @@ export class AIService {
       console.warn('[AI Service] Gemini call failed, trying OpenAI fallback:', (error as any)?.message || error);
       if (this.openaiClient) {
         try {
+          if (!taskPrompt) {
+            taskPrompt = this.buildTaskPrompt(request.task, request.input);
+          }
+          if (!systemPrompt) {
+            systemPrompt = [HOPEBLOOM_SYSTEM_PROMPT, request.input.context].filter(Boolean).join('\n\n=== CONTEXT & INSTRUCTIONS ===\n\n');
+          }
           const messages = (request.context?.history || []).map((m: any) => ({ role: m.role, content: (m.parts?.[0]?.text || '') }));
           messages.push({ role: 'user', content: taskPrompt });
           const openai = await this.openaiClient.generateText(systemPrompt, messages as any);

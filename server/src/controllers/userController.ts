@@ -79,10 +79,13 @@ export const registerUser = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'username, email, and password are required.' });
     }
 
-    // Ensure the email is unique before creating the account
-    const existing = await getUserByIdentifierDb(email);
-    if (existing) {
+    const existingEmail = await getUserByIdentifierDb(email);
+    if (existingEmail && existingEmail.email === email) {
       return res.status(409).json({ error: 'Email is already registered.' });
+    }
+    const existingUsername = await getUserByIdentifierDb(username);
+    if (existingUsername && existingUsername.username === username) {
+      return res.status(409).json({ error: 'Username is already taken.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -113,7 +116,10 @@ export const registerUser = async (req: Request, res: Response) => {
   } catch (error: any) {
     // Handle unique constraint violations defensively
     if (typeof error?.message === 'string' && error.message.includes('UNIQUE constraint failed')) {
-      return res.status(409).json({ error: 'Email is already registered.' });
+      const msg = error.message.includes('users.username')
+        ? 'Username is already taken.'
+        : 'Email is already registered.';
+      return res.status(409).json({ error: msg });
     }
 
     console.error('Error registering user:', error);

@@ -156,8 +156,12 @@ async function ensureMandatorySelfExamResends() {
   }
 }
 
-async function dispatchDueReminders() {
+export async function dispatchDueReminders() {
   try {
+    const enabled = (String(process.env.WHATSAPP_ENABLED || 'true').toLowerCase() === 'true');
+    if (!enabled) {
+      return;
+    }
     const now = new Date();
     const nowMs = now.getTime();
 

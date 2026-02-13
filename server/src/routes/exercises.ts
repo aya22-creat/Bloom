@@ -6,7 +6,6 @@ import { Router, Request, Response } from 'express';
 import { Database } from '../lib/database';
 import { requireAuth, requirePatientAccess } from '../middleware/rbac.middleware';
 import { validate, exerciseEvaluationSchema } from '../middleware/validation.schemas';
-import { emitToUser } from '../lib/socket';
 import { logAudit } from '../services/audit.service';
 
 const router = Router();
@@ -59,33 +58,8 @@ router.post('/evaluate', requireAuth, validate(exerciseEvaluationSchema), async 
     // Check for high-risk alerts
     const isHighRisk = pain_level >= 7 || score < 30;
 
-    if (isHighRisk) {
-      // Get assigned doctor
-      const patient: any = await new Promise((resolve, reject) => {
-        Database.db.get(
-          'SELECT assigned_doctor_id FROM users WHERE id = ?',
-          [userId],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
-
-      if (patient && patient.assigned_doctor_id) {
-        // Notify doctor
-        emitToUser(patient.assigned_doctor_id, 'notification:high_risk_alert', {
-          patientId: userId,
-          evaluationId,
-          exercise_name,
-          pain_level,
-          score,
-          message: pain_level >= 7
-            ? `Patient reported high pain level (${pain_level}/10) during ${exercise_name}`
-            : `Patient has low exercise score (${score}/100) for ${exercise_name}`,
-        });
-      }
-    }
+    // High-risk alert handling could notify assigned doctor via Socket.IO
+    // Temporarily disabled until per-user socket mapping is implemented
 
     // Log audit
     await logAudit({

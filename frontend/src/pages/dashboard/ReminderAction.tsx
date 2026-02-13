@@ -20,6 +20,22 @@ export default function ReminderAction() {
     if (!user?.id || !type) return;
     try {
       await apiReminders.complete({ user_id: user.id, type });
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const doneTypeKey = `hb_reminder_done_${user.id}_${type}_${todayStr}`;
+        localStorage.setItem(doneTypeKey, '1');
+      } catch {}
+      if (type === 'water') {
+        try {
+          const todayKey = `nutrition_${new Date().toDateString()}`;
+          const raw = localStorage.getItem(todayKey);
+          const WATER_TARGET_CUPS = 8;
+          const data = raw ? JSON.parse(raw) : { waterIntake: 0, calories: 0 };
+          const nextWater = Math.min(Number(data.waterIntake || 0) + 1, WATER_TARGET_CUPS);
+          const next = { ...data, waterIntake: nextWater, timestamp: new Date().toISOString() };
+          localStorage.setItem(todayKey, JSON.stringify(next));
+        } catch {}
+      }
       toast({ title: t('reminder_action.done_toast', 'تم تسجيل الإكمال') });
       navigate(`/reminders/${userType}`);
     } catch (e) {

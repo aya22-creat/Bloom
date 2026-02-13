@@ -1,0 +1,5 @@
+Patient: A.S.
+Date: 2026-02-10
+Study: Breast ultrasound (right).
+Findings: No discrete mass. Mild ductal ectasia. No suspicious calcifications.
+Impression: BI-RADS 2 (benign). Recommend routine follow-up in 12 months.

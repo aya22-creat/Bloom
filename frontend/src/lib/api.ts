@@ -213,7 +213,17 @@ export const apiProfile = {
   },
   get: async (userId: number) => {
     try {
-      return await request(`/profiles/${userId}`);
+      const raw = await request(`/profiles/${userId}`);
+      const normalized = {
+        user_id: raw.user_id ?? raw.userId ?? raw.id,
+        first_name: raw.first_name ?? raw.firstName ?? '',
+        last_name: raw.last_name ?? raw.lastName ?? '',
+        date_of_birth: raw.date_of_birth ?? raw.dateOfBirth ?? '',
+        gender: raw.gender ?? '',
+        country: raw.country ?? '',
+        medicalHistory: raw.medical_history ?? raw.medicalHistory ?? '',
+      };
+      return normalized;
     } catch (err) {
       const key = `hb_profile_${userId}`;
       const raw = localStorage.getItem(key);
@@ -558,6 +568,7 @@ export const apiMedications = {
         name: payload.name,
         dosage: payload.dosage,
         frequency: payload.frequency,
+        type: payload.type,
         time_of_day: payload.timeOfDay ?? payload.time ?? '',
         instructions: payload.instructions ?? payload.notes ?? '',
         created_at: new Date().toISOString(),
@@ -576,6 +587,7 @@ export const apiMedications = {
         name: payload.name,
         dosage: payload.dosage,
         frequency: payload.frequency,
+        type: payload.type,
         time_of_day: payload.timeOfDay ?? payload.time ?? '',
         instructions: payload.instructions ?? payload.notes ?? '',
         created_at: new Date().toISOString(),
@@ -648,10 +660,11 @@ export const apiQuestionnaire = {
 // Reports
 export const apiReports = {
   getDoctorReport: (userId: number) => request(`/reports/doctor/${userId}`),
-  uploadMedicalReport: async (file: File) => {
+  uploadMedicalReport: async (file: File, userId?: number) => {
     const token = getAuthToken();
     const form = new FormData();
     form.append('file', file);
+    if (userId) form.append('user_id', String(userId));
     const res = await fetch(`${API_BASE}/report-analysis/upload`, {
       method: 'POST',
       headers: {
@@ -667,6 +680,42 @@ export const apiReports = {
   },
 };
 
+// WhatsApp (Twilio/Webhook/N8N provider at backend)
+export const apiWhatsApp = {
+  send: async (payload: { to: string; body: string; contentSid?: string; contentVariables?: any }) => {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/whatsapp/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => 'Failed');
+      throw new Error(text || 'Failed to send WhatsApp');
+    }
+    return res.json();
+  },
+};
+
+// Lightweight API wrapper for arbitrary endpoints
+export const api = {
+  async get<T>(path: string) {
+    return request<T>(path, { method: 'GET' });
+  },
+  async post<T>(path: string, body: Record<string, unknown>) {
+    return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+  },
+  async put<T>(path: string, body: Record<string, unknown>) {
+    return request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  async del<T>(path: string) {
+    return request<T>(path, { method: 'DELETE' });
+  }
+};
+
 // AI Assistant
 export const apiAI = {
   chat: async (payload: { prompt: string; system?: string; history?: any[]; mode?: 'health' | 'psych' }) => {
@@ -678,7 +727,12 @@ export const apiAI = {
     const module = mode === 'psych' ? 'survivorship' : 'breast_cancer';
 
     try {
-      const body = { prompt: payload.prompt, mode } as any;
+      const body = {
+        prompt: payload.prompt,
+        system: payload.system || '',
+        history: payload.history || [],
+        mode,
+      } as any;
       return await request('/ai/chat', { method: 'POST', body: JSON.stringify(body), signal: controller.signal });
     } catch (err) {
       // Fallback: call Rasa REST directly when backend is unavailable or 401
@@ -694,7 +748,7 @@ export const apiAI = {
         });
         const data = await res.json();
         const text = Array.isArray(data) ? data.map((d: any) => d?.text).filter(Boolean).join('\n') : '';
-        return { success: true, provider: 'rasa', fallback: true, data: { text } } as any;
+        return { success: true, provider: 'rasa', fallback: true, text, data: { text } } as any;
       } catch (e) {
         throw err;
       }

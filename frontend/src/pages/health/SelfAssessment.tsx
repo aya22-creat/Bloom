@@ -29,7 +29,7 @@ export default function SelfAssessment() {
     setLoading(true);
     try {
       const resp = await apiAI.chat({ prompt: question, mode: assistantMode });
-      const text = (resp as any)?.data?.text || '';
+      const text = String((resp as any)?.text || (resp as any)?.data?.text || '');
       setAnswer(text);
     } catch (e) {
       setAnswer(t('common.error', 'حدث خطأ ما'));
@@ -39,6 +39,19 @@ export default function SelfAssessment() {
   };
 
   useEffect(() => {
+    const defaults: VideoItem[] = [
+      {
+        title: '1- Visual Check in Mirror',
+        subtitle: 'Stand relaxed, observe symmetry and skin changes',
+        file: 'https://www.w3schools.com/html/mov_bbb.mp4',
+      },
+      {
+        title: '2- Arm Raise and Circle',
+        subtitle: 'Raise arms and make gentle circles to feel areas',
+        file: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      },
+    ];
+
     fetch('/assets/videos.json')
       .then((r) => r.json())
       .then((list: VideoItem[]) => {
@@ -53,12 +66,15 @@ export default function SelfAssessment() {
           const nb = Math.min(num(b.file), num(b.title));
           return na - nb;
         });
-        setVideos(sorted);
+        setVideos(sorted.length > 0 ? sorted : defaults);
         setCurrentIndex(0);
         const saved = localStorage.getItem('hb_self_assessment_notes');
         if (saved) setNotes(saved);
       })
-      .catch(() => setVideos([]));
+      .catch(() => {
+        setVideos(defaults);
+        setCurrentIndex(0);
+      });
   }, []);
 
   const nextVideo = () => {
@@ -117,10 +133,17 @@ export default function SelfAssessment() {
                 <video
                   key={current.file}
                   ref={videoRef}
-                  src={`/assets/${encodeURIComponent(current.file)}`}
+                  src={current.file.startsWith('http') ? current.file : `/assets/${encodeURI(current.file)}`}
                   controls
                   muted={muted}
                   className="w-full rounded-lg"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    if (!current.file.startsWith('http')) {
+                      const raw = `/assets/${current.file}`;
+                      if (el.src !== raw) el.src = raw;
+                    }
+                  }}
                 />
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => setMuted((m) => !m)}>
@@ -155,7 +178,7 @@ export default function SelfAssessment() {
                   <button key={v.file} className="text-left" onClick={() => setCurrentIndex(idx)}>
                     <Card className="p-3 hover:shadow-md transition">
                       {v.thumbnail ? (
-                        <img src={`/assets/${v.thumbnail}`} alt={v.title} className="w/full h-32 object-cover rounded" />
+                        <img src={v.thumbnail.startsWith('http') ? v.thumbnail : `/assets/${encodeURI(v.thumbnail)}`} alt={v.title} className="w/full h-32 object-cover rounded" onError={(e)=>{ if(!v.thumbnail.startsWith('http')) { const raw = `/assets/${v.thumbnail}`; if(e.currentTarget.src!==raw) e.currentTarget.src = raw; } }} />
                       ) : (
                         <div className="w-full h-32 bg-muted rounded" />
                       )}

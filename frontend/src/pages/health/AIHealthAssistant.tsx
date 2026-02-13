@@ -80,6 +80,8 @@ const AIHealthAssistant = () => {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [symptomText, setSymptomText] = useState<string>("");
   const [symptomResult, setSymptomResult] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -141,6 +143,93 @@ const AIHealthAssistant = () => {
     const currentConv = convs.find(c => c.id === currentId) || convs[0];
     setMessages(currentConv.messages);
   }, [navigate, userType, activeMode]);
+
+  const onPickReport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const user = getCurrentUser();
+      const resp = await apiReports.uploadMedicalReport(file, user?.id);
+      const aRaw = resp?.data?.analysis;
+      const cleanText = (s?: string) => {
+        let t = String(s || '')
+          .replace(/\*\*/g, '')
+          .replace(/\\n/g, '\n')
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+        // remove leading/trailing braces that leak from JSON
+        t = t.replace(/^\s*[{\[]\s*/, '').replace(/\s*[}\]]\s*$/, '')
+        // strip common key prefixes if they leak
+        t = t.replace(/^("?answer"?\s*:\s*)/i, '')
+        return t
+      }
+      const tryParse = (raw: any) => {
+        if (typeof raw !== 'string') return raw || {};
+        const trimmed = raw.trim();
+        try { return JSON.parse(trimmed); } catch {}
+        const m = trimmed.match(/\{[\s\S]*\}/);
+        if (m) { try { return JSON.parse(m[0]); } catch {} }
+        const ansM = trimmed.match(/"?answer"?\s*:\s*"([\s\S]*?)"/);
+        const qM = trimmed.match(/"(questions|clarifying_questions)"\s*:\s*\[([\s\S]*?)\]/);
+        const sM = trimmed.match(/"(next_steps|steps)"\s*:\s*\[([\s\S]*?)\]/);
+        const rM = trimmed.match(/"(red_flags|warnings)"\s*:\s*\[([\s\S]*?)\]/);
+        const splitList = (x?: string) => (x ? x.split(/",\s*"/).map(v => v.replace(/^[\s\"]+|[\s\"]+$/g,'')).filter(Boolean) : []);
+        return {
+          summary: cleanText(ansM?.[1] || trimmed),
+          questions: splitList(qM?.[2]),
+          next_steps: splitList(sM?.[2]),
+          red_flags: splitList(rM?.[2])
+        };
+      };
+
+      const aObj: any = tryParse(aRaw);
+      const lang = detectLanguage(String(aObj?.summary || aObj?.answer || '')) === 'ar' ? 'ar' : 'en';
+      const header = lang === 'ar' ? 'الملخص' : 'Summary';
+      const qsLabel = lang === 'ar' ? 'أسئلة للطبيبة' : 'Questions for doctor';
+      const nextLabel = lang === 'ar' ? 'الخطوات التالية' : 'Next steps';
+      const redLabel = lang === 'ar' ? 'علامات إنذار' : 'Red flags';
+      const disclaimer = resp?.data?.disclaimer || aObj?.disclaimer || (lang === 'ar' ? 'هذه معلومات تعليمية داعمة وليست تشخيصاً طبياً.' : 'This is educational guidance, not a diagnosis.');
+
+      const bullets = (arr?: any) => {
+        const list = Array.isArray(arr) ? arr : [];
+        const clean = list.map((x) => String(x).trim()).filter(Boolean);
+        return clean.length ? `- ${clean.join('\n- ')}` : '-';
+      };
+
+      const questions = aObj?.questions || aObj?.clarifying_questions || aObj?.q || [];
+      const next = aObj?.next_steps || aObj?.steps || [];
+      const reds = aObj?.red_flags || aObj?.warnings || [];
+      let summary = cleanText(String(aObj?.summary || aObj?.answer || resp?.data?.summary || ''))
+      // if summary still looks JSON-like, try a second pass to extract answer
+      if (/\{\s*"?answer"?/i.test(summary)) {
+        const m = summary.match(/"?answer"?\s*:\s*"([\s\S]*?)"/)
+        if (m?.[1]) summary = cleanText(m[1])
+      }
+      const text = [
+        `${header}:`,
+        summary,
+        '',
+        `${qsLabel}:`,
+        bullets(questions),
+        '',
+        `${nextLabel}:`,
+        bullets(next),
+        '',
+        `${redLabel}:`,
+        bullets(reds),
+        '',
+        disclaimer,
+      ].join('\n');
+      setUploadResult(text);
+      toast({ title: lang === 'ar' ? 'تم الرفع' : 'Upload complete', description: lang === 'ar' ? 'تم تحليل الملف (معلومات تعليمية فقط).' : 'Report analyzed (guidance only).' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err?.message || 'Please try again', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   const generateAIResponse = (userMessage: string): string => {
     const user = getCurrentUser();
@@ -535,7 +624,33 @@ const AIHealthAssistant = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={async () => {
+                try {
+                  const u = getCurrentUser();
+                  if (!u) return;
+                  const now = new Date();
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  const date = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+                  const inMinutes = new Date(now.getTime() + 2*60*1000);
+                  const time = `${pad(inMinutes.getHours())}:${pad(inMinutes.getMinutes())}`;
+                  await (await import('@/lib/api')).apiReminders.create({
+                    user_id: u.id,
+                    title: u.language === 'ar' ? 'شرب الماء' : 'Drink Water',
+                    description: u.language === 'ar' ? 'تذكير سريع لشرب الماء' : 'Quick reminder to drink water',
+                    type: 'water',
+                    date,
+                    time,
+                    enabled: 1,
+                  });
+                  toast({ title: u.language === 'ar' ? 'تم ضبط تذكير ماء' : 'Water reminder set', description: `${date} ${time}` });
+                } catch (e: any) {
+                  toast({ title: 'Failed to set reminder', description: e?.message || 'Try again', variant: 'destructive' });
+                }
+              }}
+            >
               <Bell className="w-5 h-5" />
             </Button>
             <Button 
@@ -949,40 +1064,16 @@ const AIHealthAssistant = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     Supported formats: JPG, PNG, PDF
                   </p>
-                  {(() => {
-                    const [uploading, setUploading] = useState(false);
-                    const [uploadResult, setUploadResult] = useState("");
-                    const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setUploading(true);
-                      try {
-                        const resp = await apiReports.uploadMedicalReport(file);
-                        const text = `${resp?.data?.summary || ''}\n\n${resp?.data?.explanation || ''}\n\nNext steps:\n- ${(resp?.data?.next_steps || []).join('\n- ')}\n\nRed flags:\n- ${(resp?.data?.red_flags || []).join('\n- ')}\n\n${resp?.data?.disclaimer || ''}`;
-                        setUploadResult(text);
-                        toast({ title: 'Upload complete', description: 'Report analyzed (guidance only).' });
-                      } catch (err: any) {
-                        toast({ title: 'Upload failed', description: err?.message || 'Please try again', variant: 'destructive' });
-                      } finally {
-                        setUploading(false);
-                        e.target.value = '';
-                      }
-                    };
-                    return (
-                      <>
-                        <input id="hb-report-file" type="file" accept="image/*,.pdf" className="hidden" onChange={onPick} />
-                        <Button className="gradient-rose text-white" disabled={uploading} onClick={() => document.getElementById('hb-report-file')?.click()}>
-                          <Upload className="w-4 h-4 mr-2" />
-                          {uploading ? 'Uploading...' : 'Choose File'}
-                        </Button>
-                        {uploadResult && (
-                          <div className="mt-4 p-4 bg-white border border-primary/20 shadow-soft rounded-lg text-sm whitespace-pre-wrap">
-                            {uploadResult}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                  <input id="hb-report-file" type="file" accept="image/*,.pdf" className="hidden" onChange={onPickReport} />
+                  <Button className="gradient-rose text-white" disabled={uploading} onClick={() => document.getElementById('hb-report-file')?.click()}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploading ? 'Uploading...' : 'Choose File'}
+                  </Button>
+                  {uploadResult && (
+                    <div className="mt-4 p-4 bg-white border border-primary/20 shadow-soft rounded-lg text-sm whitespace-pre-wrap">
+                      {uploadResult}
+                    </div>
+                  )}
                 </div>
               </div>
 

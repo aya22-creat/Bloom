@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { Database } from '../lib/database';
 import { sendWhatsAppText } from '../services/whatsapp.service';
+import { dispatchDueReminders } from '../lib/scheduler';
 
 const router = Router();
 
 router.post('/send', async (req, res) => {
+  const enabled = (String(process.env.WHATSAPP_ENABLED || 'true').toLowerCase() === 'true');
   const allow =
-    process.env.NODE_ENV !== 'production' ||
-    (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true';
+    enabled && (
+      process.env.NODE_ENV !== 'production' ||
+      (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true'
+    );
 
   if (!allow) {
     return res.status(404).json({ error: 'Not found' });
@@ -15,12 +19,14 @@ router.post('/send', async (req, res) => {
 
   const to = String(req.body?.to || '').trim();
   const body = String(req.body?.body || '').trim();
+  const contentSid = req.body?.contentSid ? String(req.body.contentSid).trim() : undefined;
+  const contentVariables = req.body?.contentVariables ?? undefined;
 
-  if (!to || !body) {
-    return res.status(400).json({ error: 'to and body are required' });
+  if (!to || (!body && !contentSid)) {
+    return res.status(400).json({ error: 'to and body or contentSid are required' });
   }
 
-  const result = await sendWhatsAppText({ to, body });
+  const result = await sendWhatsAppText({ to, body, contentSid, contentVariables });
   if (!result.ok) {
     return res.status(400).json({ ok: false, error: result.error });
   }
@@ -28,9 +34,12 @@ router.post('/send', async (req, res) => {
 });
 
 router.get('/logs', (req, res) => {
+  const enabled = (String(process.env.WHATSAPP_ENABLED || 'true').toLowerCase() === 'true');
   const allow =
-    process.env.NODE_ENV !== 'production' ||
-    (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true';
+    enabled && (
+      process.env.NODE_ENV !== 'production' ||
+      (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true'
+    );
 
   if (!allow) {
     return res.status(404).json({ error: 'Not found' });
@@ -52,6 +61,52 @@ router.get('/logs', (req, res) => {
       return res.json({ logs: (rows || []).slice(0, limit) });
     }
   );
+});
+
+router.get('/send-test', async (req, res) => {
+  const enabled = (String(process.env.WHATSAPP_ENABLED || 'true').toLowerCase() === 'true');
+  const allow =
+    enabled && (
+      process.env.NODE_ENV !== 'production' ||
+      (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true'
+    );
+
+  if (!allow) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const to = String(req.query.to || '').trim();
+  const body = String(req.query.body || '').trim();
+  const contentSid = req.query.contentSid ? String(req.query.contentSid).trim() : undefined;
+  const contentVariablesRaw = req.query.contentVariables ? String(req.query.contentVariables) : undefined;
+  let contentVariables: any = undefined;
+  if (contentVariablesRaw) {
+    try { contentVariables = JSON.parse(contentVariablesRaw); } catch { contentVariables = contentVariablesRaw; }
+  }
+
+  if (!to || (!body && !contentSid)) {
+    return res.status(400).json({ error: 'to and body or contentSid are required' });
+  }
+
+  const result = await sendWhatsAppText({ to, body, contentSid, contentVariables });
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+  return res.json({ ok: true, providerMessageId: result.providerMessageId || null });
+});
+
+router.post('/dispatch-now', async (req, res) => {
+  const enabled = (String(process.env.WHATSAPP_ENABLED || 'true').toLowerCase() === 'true');
+  const allow =
+    enabled && (
+      process.env.NODE_ENV !== 'production' ||
+      (process.env.WHATSAPP_ALLOW_TEST_ENDPOINT || '').toLowerCase() === 'true'
+    );
+  if (!allow) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  await dispatchDueReminders();
+  return res.json({ ok: true });
 });
 
 export default router;

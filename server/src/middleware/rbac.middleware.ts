@@ -36,7 +36,14 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
-      req.user = decoded;
+      const anyDecoded: any = decoded as any;
+      if (typeof anyDecoded.userId !== 'number' && typeof anyDecoded.id === 'number') {
+        anyDecoded.userId = anyDecoded.id;
+      }
+      if (!anyDecoded.role) anyDecoded.role = 'patient';
+      if (!anyDecoded.language) anyDecoded.language = 'en';
+      if (typeof anyDecoded.approved !== 'boolean') anyDecoded.approved = true;
+      req.user = anyDecoded as JWTPayload;
       next();
     } catch (error) {
       return res.status(401).json({

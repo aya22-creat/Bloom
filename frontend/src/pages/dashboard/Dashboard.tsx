@@ -8,12 +8,14 @@ import {
   BookOpen, 
   Activity, 
   MessageCircle, 
+  ShoppingBag,
   Apple,
   MapPin,
   Bell,
   User,
   LogOut,
-  Flower2
+  Flower2,
+  Users
 } from "lucide-react";
 import { logoutUser } from "@/lib/database";
 import { useToast } from "@/hooks/use-toast";
@@ -115,7 +117,7 @@ const Dashboard = () => {
   const effectiveUserType = userType || user?.userType || 'wellness';
 
   const handleFeatureClick = (route: string) => {
-    const target = `/${route}/${effectiveUserType}`;
+    const target = route === 'community' || route === 'marketplace' ? `/${route}` : `/${route}/${effectiveUserType}`;
     console.log('Dashboard: navigating to', target);
     toast({ title: 'Navigating', description: target });
     navigate(target);
@@ -196,6 +198,13 @@ const Dashboard = () => {
       route: "educational-hub",
     },
     {
+      icon: ShoppingBag,
+      title: t('navigation.marketplace', 'Marketplace'),
+      description: t('dashboard.marketplace_desc', 'Shop verified and trusted products'),
+      color: "bg-blue-100 text-blue-600",
+      route: "marketplace",
+    },
+    {
       icon: MapPin,
       title: t('navigation.medical_centers'),
       description: t('dashboard.medical_centers_desc'),
@@ -215,6 +224,20 @@ const Dashboard = () => {
       description: t('dashboard.reminders_desc'),
       color: "bg-orange-100 text-orange-600",
       route: "reminders",
+    },
+    {
+      icon: Users,
+      title: t('navigation.community', 'Community'),
+      description: t('dashboard.community_desc', 'Join and explore the community'),
+      color: "bg-rose-100 text-rose-600",
+      route: "community",
+    },
+    {
+      icon: BookOpen,
+      title: t('dashboard.medical_history_title', 'Medical History'),
+      description: t('dashboard.medical_history_desc', 'Record your medical history and print a comprehensive report.'),
+      color: "bg-amber-100 text-amber-600",
+      route: "patient-history",
     },
   ];
 

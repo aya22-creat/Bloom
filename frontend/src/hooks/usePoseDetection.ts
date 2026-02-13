@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PoseFrame, PoseLandmark } from '../types/exercise.types';
+import { extractAngles } from '@/lib/pose-utils';
 
 // MediaPipe will be loaded dynamically
 let PoseLandmarker: any = null;
@@ -103,7 +104,8 @@ export function usePoseDetection() {
 
           return {
             frame: frameCountRef.current,
-            landmarks
+            landmarks,
+            angles: extractAngles(landmarks)
           };
         }
 

@@ -35,3 +35,8 @@ dist-ssr
 *.flv
 *.wmv
 *.m4v
+
+# Environment files (secrets)
+.env
+*.env
+server/.env

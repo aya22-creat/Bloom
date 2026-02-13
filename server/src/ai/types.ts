@@ -250,12 +250,20 @@ export interface GeminiRequest {
   contents: Array<{
     role: 'user' | 'model';
     parts: Array<{
-      text: string;
+      text?: string;
+      inlineData?: {
+        mimeType: string;
+        data: string;
+      };
     }>;
   }>;
   systemInstruction?: {
     parts: Array<{
-      text: string;
+      text?: string;
+      inlineData?: {
+        mimeType: string;
+        data: string;
+      };
     }>;
   };
   generationConfig?: {

@@ -13,6 +13,7 @@ router.post('/', (req, res) => {
     dateOfBirth,
     gender,
     country,
+    medicalHistory,
   } = req.body;
 
   if (!userId) {
@@ -51,6 +52,10 @@ router.post('/', (req, res) => {
           fields.push('country = ?');
           params.push(country);
         }
+        if (typeof medicalHistory === 'string') {
+          fields.push('medical_history = ?');
+          params.push(medicalHistory);
+        }
         params.push(userId);
 
         Database.db.run(
@@ -68,9 +73,9 @@ router.post('/', (req, res) => {
       } else {
         // Create new profile
         Database.db.run(
-          `INSERT INTO user_profiles (user_id, first_name, last_name, date_of_birth, gender, country)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [userId, firstName, lastName, dateOfBirth, gender, country],
+          `INSERT INTO user_profiles (user_id, first_name, last_name, date_of_birth, gender, country, medical_history)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [userId, firstName, lastName, dateOfBirth, gender, country, typeof medicalHistory === 'string' ? medicalHistory : null],
           function (this: RunResult, err) {
             if (err) {
               return res.status(400).json({ error: 'Failed to create profile.' });

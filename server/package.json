@@ -8,7 +8,14 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "preview": "node dist/index.js",
-    "check": "tsc -b --noEmit"
+    "check": "tsc -b --noEmit",
+    "seed:marketplace": "tsx scripts/seed-marketplace.ts",
+    "test:report": "tsx scripts/test-report-analysis.ts",
+    "test:image": "tsx scripts/test-report-image.ts",
+    "update:product-images": "tsx scripts/update-product-images.ts",
+    "seed:medical-history": "tsx scripts/seed-medical-history.ts",
+    "setup:shahd": "tsx scripts/configure-shahd.ts",
+    "images:materialize": "tsx scripts/materialize-product-images.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
@@ -26,6 +33,8 @@
     "react-router-dom": "^7.3.0",
     "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7",
+    "msnodesqlv8": "^3.1.0",
+    "stripe": "^20.3.1",
     "tailwind-merge": "^3.0.2",
     "zustand": "^5.0.3"
   },
